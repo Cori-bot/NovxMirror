@@ -12,7 +12,6 @@ import {
   takeScreenshot,
   syncVisibleGStreamer,
   startGStreamerWatcher,
-  resolutionToDimensions,
   normalizeVideoAspect,
   persistVideoAspect,
 } from './video-window';
@@ -28,16 +27,21 @@ import { cleanupTempFiles } from './paths';
 import { notifyDeviceConnected, notifyDeviceDisconnected } from './notifications';
 import type { Settings, SettingsPayload } from './types';
 
+// On annonce 4K à UxPlay pour ne jamais brider l'iPhone par notre handshake.
+// L'iPhone négocie ce qu'il sait produire (typiquement 1920x1080); ce plafond
+// haut sert juste à ne pas introduire de cap artificiel côté receiver.
+const MAX_STREAM_WIDTH = 3840;
+const MAX_STREAM_HEIGHT = 2160;
+
 export function startUxPlay(settings: Settings): boolean {
   const normalized = normalizeSettings(settings);
-  const dim = resolutionToDimensions(normalized.resolution);
-  const videoCrop = getVideoCropConfigForResolution(dim.w, dim.h);
+  const videoCrop = getVideoCropConfigForResolution(MAX_STREAM_WIDTH, MAX_STREAM_HEIGHT);
   return uxplay.start({
     name: normalized.name,
     pin: normalized.pinEnabled ? normalized.pin : null,
     fps: normalized.fps,
-    maxWidth: dim.w,
-    maxHeight: dim.h,
+    maxWidth: MAX_STREAM_WIDTH,
+    maxHeight: MAX_STREAM_HEIGHT,
     audioEnabled: normalized.audioEnabled,
     videoCrop,
   });
