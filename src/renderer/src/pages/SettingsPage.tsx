@@ -5,7 +5,7 @@ import { useT } from '../i18n/useT';
 import { Select } from '../components/Select';
 import { Section } from '../components/Section';
 import { ThemeChips } from '../components/ThemeChips';
-import type { ConnectBehavior, Fps, Locale, Resolution, Settings, Theme } from '../types';
+import type { ConnectBehavior, Fps, Locale, Settings, Theme } from '../types';
 
 export function SettingsPage() {
   const t = useT();
@@ -97,19 +97,6 @@ export function SettingsPage() {
                 setName(e.target.value);
                 debouncedReceiverUpdate({ name: e.target.value.trim() || 'NOVX Mirror' });
               }}
-            />
-          </div>
-
-          <div className="setting-group">
-            <label className="setting-label">{t('settings.maxResolution')}</label>
-            <Select<Resolution>
-              value={settings.resolution}
-              onChange={(v) => updateReceiver({ resolution: v })}
-              options={[
-                { value: '1080p', label: t('settings.resolution.1080p') },
-                { value: '1440p', label: t('settings.resolution.1440p') },
-                { value: '4k', label: t('settings.resolution.4k') },
-              ]}
             />
           </div>
 

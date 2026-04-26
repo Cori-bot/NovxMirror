@@ -13,7 +13,7 @@ export const DEFAULT_SETTINGS: Settings = {
   pin: null,
   pinEnabled: false,
   fps: 60,
-  resolution: '1440p',
+  resolution: '1080p',
   audioEnabled: true,
   screenshotDir: null,
   theme: 'dark',
@@ -25,7 +25,9 @@ export const DEFAULT_SETTINGS: Settings = {
   connectBehavior: 'hide',
 };
 
-const VALID_RESOLUTIONS: ReadonlySet<Resolution> = new Set(['1080p', '1440p', '4k']);
+// AirPlay mirroring from iPhone négocie au max 1920x1080 quel que soit le -s annoncé.
+// Garder d'autres valeurs trompait l'utilisateur (cf. 120fps debunk).
+const VALID_RESOLUTIONS: ReadonlySet<Resolution> = new Set(['1080p']);
 const VALID_FPS: ReadonlySet<Fps> = new Set([30, 60]);
 const VALID_THEMES: ReadonlySet<Theme> = new Set(['light', 'dark', 'midnight']);
 const VALID_LOCALES: ReadonlySet<Locale> = new Set(['fr', 'en', 'de']);

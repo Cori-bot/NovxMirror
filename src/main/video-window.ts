@@ -28,7 +28,7 @@ export function resolutionToDimensions(res: Resolution): { w: number; h: number 
     '1440p': { w: 2560, h: 1440 },
     '4k': { w: 3840, h: 2160 },
   };
-  return map[res] ?? map['1440p'];
+  return map[res] ?? map['1080p'];
 }
 
 export function getVideoCropConfigForResolution(_w: number, _h: number): VideoCrop {
