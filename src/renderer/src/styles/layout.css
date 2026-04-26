@@ -1,0 +1,201 @@
+/*
+ * Layout overrides for the larger resizable window.
+ * Sits on top of legacy.css to free the layout from the original 420x480 cage.
+ */
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* React mounts the app fragment under #root — make it the real flex column
+ * so .app { flex: 1 1 auto } can actually take the remaining space. */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Free the .app from any fixed sizing inherited from legacy CSS */
+.app {
+  flex: 1 1 auto;
+  width: 100% !important;
+  max-width: none !important;
+  height: auto !important;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.titlebar {
+  flex-shrink: 0;
+}
+
+/* Top nav full width, contents centered */
+.top-nav {
+  width: 100% !important;
+  max-width: none !important;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 0 4px;
+}
+
+/* Panels take the remaining vertical space and scroll internally */
+.panel {
+  flex: 1 1 auto;
+  width: 100% !important;
+  max-width: none !important;
+  height: auto !important;
+  min-height: 0;
+  display: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+}
+
+.panel.active {
+  display: flex;
+}
+
+/* Strong override for legacy #panel-* rules that set padding-right: 6px */
+#panel-home,
+#panel-settings,
+#panel-logs {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-right: 0 !important;
+  scrollbar-gutter: stable;
+}
+
+/* HOME — centered column on small width, two-column on wider */
+#panel-home {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.home-body {
+  width: 100%;
+  max-width: 880px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+}
+
+.home-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+}
+
+.home-status-group {
+  text-align: center;
+}
+
+/* SETTINGS — centered card-like container */
+#panel-settings {
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 24px 32px;
+}
+
+.settings-form {
+  width: 100%;
+  max-width: 720px;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0;
+}
+
+.settings-block {
+  border-radius: 14px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  background: var(--surface, rgba(255, 255, 255, 0.025));
+  padding: 18px 20px;
+}
+
+.settings-block-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-block-sub {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 2px;
+  margin-bottom: 14px;
+}
+
+/* Don't override .setting-row / .setting-group padding — legacy.css already
+ * sets a sane 13–16px padding. Just give them a bit of vertical breathing room
+ * inside their Section. */
+.setting-group,
+.setting-row {
+  margin: 0;
+}
+
+/* App footer is a real flex item at the bottom of #root — not fixed.
+ * Override legacy.css's position: fixed so the panel above never scrolls
+ * under the footer. */
+.app-footer {
+  position: static !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  flex-shrink: 0;
+  width: 100%;
+  padding: 6px 18px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: auto !important;
+  background: var(--bg, transparent);
+  border-top: 1px solid
+    color-mix(in srgb, var(--border, rgba(255, 255, 255, 0.06)) 70%, transparent);
+}
+
+/* Make existing setting-input/setting-label adapt */
+.setting-input,
+.setting-select {
+  width: 100%;
+}
+
+/* On wider windows, allow Home to show stats panel beside the orb */
+@media (min-width: 760px) {
+  .home-body.has-stats {
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 32px;
+    max-width: 1100px;
+  }
+  .home-body.has-stats .home-center {
+    flex: 0 0 320px;
+  }
+}
+
+/* Hide the original error banner / toast positioning conflicts */
+.success-toast,
+.error-banner {
+  z-index: 250;
+}

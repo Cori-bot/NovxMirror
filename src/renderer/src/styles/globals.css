@@ -1,0 +1,61 @@
+@import './legacy.css';
+@import './layout.css';
+@import './select.css';
+@import './stats.css';
+@import './onboarding.css';
+@import './section.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme='light'] {
+  --bg: #ffffff;
+  --fg: #0a0a0a;
+  --muted: #666666;
+  --border: #e5e5e5;
+  --surface: #fafafa;
+  --surface-2: #f0f0f0;
+  --accent: #0066ff;
+  --accent-fg: #ffffff;
+  --danger: #e5484d;
+}
+
+[data-theme='dark'] {
+  --bg: #0a0a0a;
+  --fg: #fafafa;
+  --muted: #a0a0a0;
+  --border: #262626;
+  --surface: #141414;
+  --surface-2: #1f1f1f;
+  --accent: #3b82f6;
+  --accent-fg: #ffffff;
+  --danger: #ef4444;
+}
+
+[data-theme='midnight'] {
+  --bg: #050816;
+  --fg: #e6e8ee;
+  --muted: #8a92a6;
+  --border: #1a1f33;
+  --surface: #0b1024;
+  --surface-2: #121733;
+  --accent: #6366f1;
+  --accent-fg: #ffffff;
+  --danger: #f43f5e;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Geist', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+}

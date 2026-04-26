@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="256px" height="256px" viewBox="0 0 256 256" version="1.1">
+<defs>
+<linearGradient id="linear0" gradientUnits="userSpaceOnUse" x1="0.1" y1="0" x2="0.9" y2="1" gradientTransform="matrix(184.667969,0,0,183.039063,30.929688,35.839844)">
+<stop offset="0" style="stop-color:rgb(11.764706%,25.098039%,68.627451%);stop-opacity:1;"/>
+<stop offset="1" style="stop-color:rgb(57.647059%,77.254902%,99.215686%);stop-opacity:1;"/>
+</linearGradient>
+</defs>
+<g id="surface1">
+<path style=" stroke:none;fill-rule:nonzero;fill:url(#linear0);" d="M 128 35.839844 C 179.199219 30.71875 222.71875 71.679688 215.039062 117.761719 C 208.640625 153.601562 225.28125 174.078125 199.679688 199.679688 C 174.078125 225.28125 135.679688 222.71875 107.519531 207.359375 C 76.800781 189.441406 40.960938 202.238281 33.28125 168.960938 C 23.039062 133.121094 46.078125 97.28125 69.121094 76.800781 C 89.601562 58.878906 84.480469 40.960938 128 35.839844 Z M 128 35.839844 "/>
+</g>
+</svg>
