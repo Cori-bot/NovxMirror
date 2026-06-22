@@ -1,8 +1,16 @@
 # NEXT — NOVX Mirror (audit + quick wins)
 
-Session du 2026-06-21. Audit complet (32 agents) + implémentation du lot quick-wins
-et de la feature TikTok. Tout ce qui suit est **validé** par `tsc -b --noEmit` + ESLint
-+ build `electron-vite` (les 3 verts). Rien n'a encore été lancé sur un iPhone réel.
+Sessions des 2026-06-21/22. Audit complet (32 agents) + quick-wins + features
+(TikTok, bouton REC) + deps Vague 1 + GPU zéro-copie. Tout est **validé** par
+`tsc -b --noEmit` + ESLint + build `electron-vite` (3 verts) ; les bumps deps sont
+aussi validés par `pnpm install` + le binaire Electron 42 qui démarre. Rien n'a
+encore été lancé sur un iPhone réel (cf. items « À VALIDER SUR DEVICE »).
+
+Commits sur la branche `feat/audit-quickwins-recording` :
+- `f2e1dfd` feat: quick-wins + bugs + perf + features (TikTok, REC)
+- `073eda0` chore(deps): vague 1 (Electron 42, builder, typescript-eslint, zustand, geist)
+- `e63f424` chore(deps): eslint 9.39.4 (ESLint 10 différé)
+- `be37adc` perf(gpu): pipeline zéro-copie (videocrop retiré) — à valider visuellement
 
 ## 1. État courant
 
@@ -89,34 +97,39 @@ src/renderer/src/App.tsx
 
 ## 4. Tâches restantes (par workstream)
 
-### GPU zero-copy (besoin test device)
-- [ ] Tester le retrait de `videocrop` du `-vs` (uxplay-manager.ts:~141). Le crop
-  (6/6/2/0 px overscan) force GPU→CPU→GPU par frame. Options à prototyper :
-  (a) supprimer videocrop et vérifier si `force-aspect-ratio` + la fenêtre native
-  suffisent ; (b) crop côté fenêtre Win32 (overscan déjà géré dans video-window.ts).
-  Mesurer CPU/latence avant/après. NE PAS shipper sans validation visuelle.
+### GPU zero-copy — ✅ FAIT (commit perf(gpu), À VALIDER VISUELLEMENT)
+- [x] `videocrop` retiré du `-vs` (uxplay-manager.ts buildArgs) → decode d3d11 →
+  d3d11videosink direct (zéro-copie). Validé compile/lint/build.
+- [ ] **À VÉRIFIER SUR DEVICE** : pas de liseré d'overscan visible aux bords. Si liseré
+  gênant → revert (instructions en commentaire dans buildArgs) ou crop GPU-side.
 
-### Deps Vague 1 — sécurité (besoin pnpm install + build/launch)
-- [ ] Régler d'abord le blocage pnpm (pnpm-workspace.yaml : vérifier `allowBuilds` vs
-  `onlyBuiltDependencies`, ou `CI=true`).
-- [ ] Electron `^41.3.0` → `^43` (EOL 25 août 2026). ESLint `^9.15` → `^10`
-  (EOL 6 août 2026) + `@typescript-eslint` → `^8.61` + remplacer `tseslint.config()`
-  par `defineConfig()`. electron-builder → `^26.15.3`. Triviaux : zustand 5.0.14,
-  geist 1.7.2. Lancer install → typecheck → build → launch test.
+### Deps Vague 1 — ✅ FAIT (2 commits chore(deps), À LAUNCH-TESTER)
+- [x] Electron `^41.3.0` → `^42.4.1` (43 encore beta) ; electron-builder → `^26.15.3` ;
+  `@typescript-eslint` → `^8.61.1` ; zustand `5.0.14` ; geist `1.7.2`. Validé
+  install + typecheck + lint + build + binaire Electron 42 (`v42.4.1`).
+- [~] ESLint 10 : DIFFÉRÉ. eslint-plugin-react@7.37.5 casse sur ESLint 10
+  (`context.getFilename` retiré). Resté en eslint `^9.39.4`. Refaire quand
+  eslint-plugin-react + eslint-plugin-import supportent ESLint 10.
+- [ ] **À FAIRE côté device** : `pnpm dev` / `pnpm start` pour valider le runtime
+  Electron 42 (nouveau Chromium) avec le pipeline GStreamer d3d11.
 - [ ] (Vague 2/3 plus tard : Vite 7 + electron-vite 5 + plugin-react 5 + TS 5.9 ;
   puis React 19 + Compiler, Tailwind 4.)
 
-### Feature iPhone — DACP (média)
-- [ ] Télécommande média : UxPlay `-dacp`, parser `~/.uxplay.dacp`, envoyer
-  play/pause/piste/volume au `_dacp._tcp` de l'iPhone. UI = boutons média. ~1j.
-- [ ] (Optionnel, à prototyper) curseur via BLE HID + AssistiveTouch — valider d'abord
-  que Windows peut publier un GATT HID accepté par iOS.
+### Feature iPhone — DACP : ❌ NON RETENU (mauvais fit)
+- DACP est le seul back-channel AirPlay, mais il ne fonctionne QUE pour les sessions
+  AirPlay AUDIO (RAOP), PAS pour le mirroring vidéo. NOVX étant un récepteur de
+  mirroring, une « télécommande média » serait MORTE pendant la recopie d'écran →
+  valeur quasi nulle dans le cas d'usage. Non implémenté volontairement.
+- [ ] (Optionnel, si on vise vraiment le contrôle) curseur via BLE HID +
+  AssistiveTouch — prototyper d'abord que Windows peut publier un GATT HID accepté
+  par iOS (WinRT GattServiceProvider). Hors périmètre headless.
 
-### Câble — POC gratuit (test manuel utilisateur)
-- [ ] iPhone → Partage de connexion → « USB uniquement » ; vérifier l'adaptateur
-  « Apple Mobile Device Ethernet » côté PC ; lancer UxPlay et voir si l'iPhone liste
-  le receiver dans Recopie d'écran. Si OK = zéro changement de pipeline. Sinon : mode
-  pymobiledevice3 DVT séparé (blueprint MIT BieleckiLtd/IosScreenCaptureTool).
+### Câble — POC gratuit (TEST MANUEL utilisateur, aucun code)
+- [ ] iPhone → Réglages → Partage de connexion → activer ; brancher l'USB ; côté PC,
+  vérifier l'adaptateur « Apple Mobile Device Ethernet » (Panneau de config réseau) ;
+  lancer NOVX et regarder si l'iPhone liste le receiver dans Recopie d'écran.
+  Si OK = zéro changement de pipeline. Sinon : mode pymobiledevice3 DVT séparé
+  (blueprint MIT BieleckiLtd/IosScreenCaptureTool — un 2e backend, gros chantier).
 
 ### Autres simplifications (non urgentes, repérées)
 - [ ] video-window.ts : ~150 lignes de P/Invoke C# dupliquées (NovxW/NovxS) → DLL/source unique.
