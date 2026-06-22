@@ -9,7 +9,7 @@
     "start": "electron-vite preview",
     "build": "electron-vite build && electron-builder --win --x64",
     "lint": "eslint . --fix",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -b --noEmit",
     "check": "npm run lint && npm run typecheck"
   },
   "devDependencies": {

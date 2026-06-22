@@ -1,4 +1,4 @@
-import { spawn, execSync, type ChildProcess } from 'node:child_process';
+import { spawn, execFile, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { EventEmitter } from 'node:events';
@@ -38,6 +38,9 @@ export interface UxPlayEvents {
   'session-start': [{ device: string | null; startedAt: Date | null }];
   'session-end': [{ device: string | null; duration: number; endedAt: Date }];
   'restart-requested': [];
+  // iOS a basculé du mirroring vers la route "AirPlay video" (ex: TikTok/YouTube
+  // passés en plein écran). Sans -hls, l'image n'arrive pas (audio seul).
+  'video-route-switch': [];
 }
 
 type EventListener<K extends keyof UxPlayEvents> = (...args: UxPlayEvents[K]) => void;
@@ -70,6 +73,13 @@ export class UxPlayManager extends EventEmitter {
   private startedAt: number | null = null;
   private restartCount = 0;
   private restartTimer: ReturnType<typeof setTimeout> | null = null;
+  // Incrémenté à chaque start()/stop() volontaire. Le handler restart-requested
+  // capture la génération courante avant le check Bonjour async et abandonne si
+  // elle a changé entre-temps (stop ou start manuel pendant la fenêtre async).
+  private restartGeneration = 0;
+  // Timer du flush 'streaming-started' (500ms après 'begin streaming'). Stocké
+  // pour pouvoir le clearer dans stop() et ne jamais émettre un pid périmé.
+  private streamingTimer: ReturnType<typeof setTimeout> | null = null;
   // Buffer for partial lines arriving across stdout/stderr chunks — without
   // this, log lines split across reads silently fail to match parser regexes.
   private parseBuffer = '';
@@ -79,6 +89,8 @@ export class UxPlayManager extends EventEmitter {
   private plistInside = false;
   private plistKey: string | null = null;
   private plistData = new Map<string, number>();
+  // Évite d'annoncer plusieurs fois le basculement de route vidéo par session.
+  private videoRouteAnnounced = false;
 
   private normalizeText(value: string): string {
     return value
@@ -147,6 +159,7 @@ export class UxPlayManager extends EventEmitter {
   }
 
   start(opts: Partial<UxPlayOptions> = {}, isAutoRestart = false): boolean {
+    this.restartGeneration++;
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
@@ -184,12 +197,16 @@ export class UxPlayManager extends EventEmitter {
       GST_PLUGIN_SYSTEM_PATH: join(binDir, 'gstreamer-1.0'),
       GST_REGISTRY: join(binDir, 'gst-registry.bin'),
       GST_PLUGIN_SCANNER: '',
-      // Caps negotiation in GStreamer logs at DEBUG level (5), not INFO (4) —
-      // we need :5 to actually see `width=(int)N, height=(int)M`. Targeting a
-      // few elements that handle the H.264 path keeps volume manageable.
-      // h264parse parses the SPS and is the first place real width/height
-      // show up after the iPhone-side encoder.
-      GST_DEBUG: '*:2,GST_CAPS:5,h264parse:5,videocrop:5,d3d11videosink:5',
+      // Garantit le décodage matériel GPU (Direct3D11/DXVA) en remontant le rank
+      // des décodeurs d3d11 au-dessus des décodeurs logiciels (avdec_*), SANS
+      // retirer le fallback software si le GPU ne supporte pas le codec.
+      GST_PLUGIN_FEATURE_RANK: 'd3d11h264dec:max,d3d11h265dec:max',
+      // GST_CAPS:5 suffit à voir `width=(int)N, height=(int)M` (notre source de
+      // résolution). On ne met PLUS h264parse/videocrop/d3d11videosink à :5 : à
+      // 60fps ça générait un volume massif de logs par frame (CPU/I/O) et des
+      // dimensions parasites (textures/alignement) captées comme fausses
+      // résolutions. `*:2` garde les warnings/erreurs utiles.
+      GST_DEBUG: '*:2,GST_CAPS:5',
       GST_DEBUG_NO_COLOR: '1',
     };
 
@@ -208,6 +225,7 @@ export class UxPlayManager extends EventEmitter {
     this.plistInside = false;
     this.plistKey = null;
     this.plistData.clear();
+    this.videoRouteAnnounced = false;
     this.stats = {
       resolution: null,
       fps: null,
@@ -410,12 +428,30 @@ export class UxPlayManager extends EventEmitter {
       }
 
       if (lower.includes('begin streaming to gstreamer')) {
-        setTimeout(() => {
-          this.emit('streaming-started', {
-            pid: this.process?.pid,
-            device: this.connectedDevice,
-          });
+        const proc = this.process;
+        const pid = proc?.pid;
+        if (this.streamingTimer) clearTimeout(this.streamingTimer);
+        this.streamingTimer = setTimeout(() => {
+          this.streamingTimer = null;
+          // N'émet que si c'est toujours le MÊME process qui a loggé la ligne :
+          // un stop/restart rapide aurait pu remplacer this.process entre-temps.
+          if (this.process === proc && pid != null) {
+            this.emit('streaming-started', { pid, device: this.connectedDevice });
+          }
         }, 500);
+      }
+
+      // Basculement mirroring → AirPlay video (TikTok/YouTube en plein écran) :
+      // UxPlay reçoit une requête de lecture vidéo. Sans -hls, l'image n'arrive
+      // pas. On prévient l'UI une fois par session.
+      if (
+        !this.videoRouteAnnounced &&
+        (line.includes('POST /play') ||
+          lower.includes('content-location') ||
+          lower.includes('fcup_request'))
+      ) {
+        this.videoRouteAnnounced = true;
+        this.emit('video-route-switch');
       }
 
       for (const pattern of connPatterns) {
@@ -436,6 +472,8 @@ export class UxPlayManager extends EventEmitter {
           this.connectedDevice = deviceName;
           this.connectedAt = new Date();
           this.status = 'connected';
+          // Nouvelle connexion → réarme la détection de basculement vidéo.
+          this.videoRouteAnnounced = false;
           this.emit('status', {
             status: 'connected',
             device: this.connectedDevice,
@@ -593,22 +631,33 @@ export class UxPlayManager extends EventEmitter {
   }
 
   stop(): void {
+    this.restartGeneration++;
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
+    }
+    if (this.streamingTimer) {
+      clearTimeout(this.streamingTimer);
+      this.streamingTimer = null;
     }
     this.restartCount = 0;
     if (this.process) {
       this.stoppingIntent = true;
       this.suppressErrorsUntil = Date.now() + 4000;
-      try {
-        try {
-          execSync(`taskkill /PID ${String(this.process.pid)} /T /F`, { windowsHide: true });
-        } catch {
-          this.process.kill('SIGTERM');
-        }
-      } catch {
-        // ignore
+      const proc = this.process;
+      const pid = proc.pid;
+      if (pid != null) {
+        // Async (execFile) pour ne PAS bloquer l'event loop / l'UI pendant le
+        // taskkill /T qui parcourt l'arbre de process GStreamer (100-500ms+).
+        execFile('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true }, (err) => {
+          if (err) {
+            try {
+              proc.kill();
+            } catch {
+              // process déjà mort — rien à faire
+            }
+          }
+        });
       }
       this.process = null;
     }
@@ -621,6 +670,13 @@ export class UxPlayManager extends EventEmitter {
 
   isRunning(): boolean {
     return this.process !== null && this.status !== 'stopped' && this.status !== 'error';
+  }
+
+  // Jeton d'intention : change à chaque start()/stop() volontaire. Permet au
+  // handler restart-requested d'abandonner si l'utilisateur a agi pendant le
+  // check Bonjour async.
+  getRestartGeneration(): number {
+    return this.restartGeneration;
   }
 
   getLogs(): LogEntry[] {

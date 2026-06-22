@@ -24,6 +24,11 @@ export function createMainWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Perf : aucun champ texte significatif → pas de dictionnaire en RAM ni de
+      // téléchargement de dico. Cache bytecode V8 sans attendre le seuil de
+      // chaleur pour accélérer les démarrages suivants.
+      spellcheck: false,
+      v8CacheOptions: 'bypassHeatCheck',
     },
   });
 

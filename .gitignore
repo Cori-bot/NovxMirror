@@ -29,6 +29,7 @@ pnpm-debug.log*
 *.sublime-workspace
 
 # Cache
+*.tsbuildinfo
 .eslintcache
 .stylelintcache
 .prettiercache

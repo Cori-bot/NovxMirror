@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/app';
 import { useT, useTranslations } from '../i18n/useT';
 
@@ -11,6 +11,27 @@ export function BonjourModal() {
   const [phase, setPhase] = useState<'idle' | 'success' | 'failed'>('idle');
   const [countdown, setCountdown] = useState(3);
 
+  // Compte à rebours avant redémarrage, piloté par un effet NETTOYABLE : si la
+  // modale se ferme/démonte pendant le décompte, l'intervalle est clearé et
+  // restartApp() n'est PAS appelé deux fois (ancien bug : setTimeout récursifs
+  // jamais nettoyés + setState sur composant démonté).
+  useEffect(() => {
+    if (!isOpen || phase !== 'success') return;
+    setCountdown(3);
+    let n = 3;
+    const id = setInterval(() => {
+      n -= 1;
+      setCountdown(n);
+      if (n <= 0) {
+        clearInterval(id);
+        void window.airmirror.restartApp();
+      }
+    }, 1000);
+    return () => {
+      clearInterval(id);
+    };
+  }, [isOpen, phase]);
+
   if (!isOpen) return null;
 
   const onInstall = () => {
@@ -18,23 +39,7 @@ export function BonjourModal() {
     setPhase('idle');
     void window.airmirror.installBonjour().then((result) => {
       setInstalling(false);
-      if (result.success) {
-        setPhase('success');
-        let n = 3;
-        setCountdown(n);
-        const tick = () => {
-          if (n === 0) {
-            void window.airmirror.restartApp();
-            return;
-          }
-          n--;
-          setCountdown(n);
-          setTimeout(tick, 1000);
-        };
-        setTimeout(tick, 1000);
-      } else {
-        setPhase('failed');
-      }
+      setPhase(result.success ? 'success' : 'failed');
     });
   };
 

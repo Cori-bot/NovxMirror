@@ -142,12 +142,6 @@ export const TRANSLATIONS: Record<Locale, Translations> = {
         'Reglages appliques au receiver AirPlay. Si le receiver tourne deja, il sera relance automatiquement.',
       receiverName: 'Nom du receiver',
       receiverNameHint: "Visible par les iPhones dans Recopie d'ecran",
-      maxResolution: 'Resolution max',
-      resolution: {
-        '1080p': '1080p - Fluide',
-        '1440p': '1440p - Recommande',
-        '4k': '4K - Le plus net',
-      },
       maxFps: 'FPS maximum',
       fps: { '30': '30 fps', '60': '60 fps - Max AirPlay' },
       audio: 'Audio',
@@ -204,6 +198,10 @@ export const TRANSLATIONS: Record<Locale, Translations> = {
       details: 'Details',
       genericReceiver: 'Le receiver a rencontre un souci. Voir les details ou les logs.',
       pinInvalid: 'Le code PIN doit etre compose de 4 chiffres.',
+      videoRouteTitle: "L'app est passee en lecture video AirPlay (TikTok/YouTube plein ecran).",
+      videoRouteDetail:
+        "En plein ecran, iOS arrete le mirroring et bascule en lecture video AirPlay : sur un recepteur tiers l'image n'est pas transmise (souvent ecran noir, audio seul). Repasse la video en mode normal/feed pour retrouver le mirroring. Les contenus proteges (DRM) restent noirs par design Apple.",
+      recordFailed: "L'enregistrement de l'ecran a echoue.",
     },
     confirm: {
       title: 'Modifications non appliquees',
@@ -251,6 +249,9 @@ export const TRANSLATIONS: Record<Locale, Translations> = {
       latency: 'Latence',
       loss: 'Pertes',
       audio: 'Audio',
+      record: 'Enregistrer',
+      recordStop: 'Arreter',
+      recordSaved: 'Video enregistree',
     },
   },
   en: {
@@ -346,12 +347,6 @@ export const TRANSLATIONS: Record<Locale, Translations> = {
         'Settings applied to the AirPlay receiver. If it is already running, it will restart automatically.',
       receiverName: 'Receiver name',
       receiverNameHint: 'Visible on iPhones in Screen Mirroring',
-      maxResolution: 'Max resolution',
-      resolution: {
-        '1080p': '1080p - Smooth',
-        '1440p': '1440p - Recommended',
-        '4k': '4K - Sharpest',
-      },
       maxFps: 'Max FPS',
       fps: { '30': '30 fps', '60': '60 fps - AirPlay max' },
       audio: 'Audio',
@@ -407,6 +402,10 @@ export const TRANSLATIONS: Record<Locale, Translations> = {
       details: 'Details',
       genericReceiver: 'The receiver ran into an issue. See details or logs.',
       pinInvalid: 'The PIN code must contain exactly 4 digits.',
+      videoRouteTitle: 'The app switched to AirPlay video playback (TikTok/YouTube fullscreen).',
+      videoRouteDetail:
+        "In fullscreen, iOS stops mirroring and switches to AirPlay video playback: on a third-party receiver the picture isn't sent (often a black screen, audio only). Switch the video back to normal/feed mode to restore mirroring. Protected (DRM) content stays black by Apple design.",
+      recordFailed: 'Screen recording failed.',
     },
     confirm: {
       title: 'Pending changes',
@@ -449,6 +448,9 @@ export const TRANSLATIONS: Record<Locale, Translations> = {
       latency: 'Latency',
       loss: 'Loss',
       audio: 'Audio',
+      record: 'Record',
+      recordStop: 'Stop',
+      recordSaved: 'Video saved',
     },
   },
   de: {
@@ -544,12 +546,6 @@ export const TRANSLATIONS: Record<Locale, Translations> = {
         'Diese Einstellungen gelten fur den AirPlay-Receiver. Wenn er bereits lauft, wird er automatisch neu gestartet.',
       receiverName: 'Receiver-Name',
       receiverNameHint: 'Auf iPhones in Bildschirmspiegelung sichtbar',
-      maxResolution: 'Maximale Auflosung',
-      resolution: {
-        '1080p': '1080p - Flussig',
-        '1440p': '1440p - Empfohlen',
-        '4k': '4K - Am scharfsten',
-      },
       maxFps: 'Maximale FPS',
       fps: { '30': '30 fps', '60': '60 fps - AirPlay-Maximum' },
       audio: 'Audio',
@@ -606,6 +602,10 @@ export const TRANSLATIONS: Record<Locale, Translations> = {
       details: 'Details',
       genericReceiver: 'Beim Receiver ist ein Problem aufgetreten. Siehe Details oder Logs.',
       pinInvalid: 'Der PIN-Code muss genau 4 Ziffern enthalten.',
+      videoRouteTitle: 'Die App wechselte zur AirPlay-Videowiedergabe (TikTok/YouTube Vollbild).',
+      videoRouteDetail:
+        'Im Vollbild stoppt iOS die Spiegelung und wechselt zur AirPlay-Videowiedergabe: Auf einem Drittanbieter-Receiver wird das Bild nicht ubertragen (oft schwarzer Bildschirm, nur Ton). Schalte das Video zuruck in den Normal-/Feed-Modus, um die Spiegelung wiederherzustellen. Geschutzte (DRM) Inhalte bleiben prinzipbedingt schwarz.',
+      recordFailed: 'Bildschirmaufnahme fehlgeschlagen.',
     },
     confirm: {
       title: 'Nicht angewendete Anderungen',
@@ -654,6 +654,9 @@ export const TRANSLATIONS: Record<Locale, Translations> = {
       latency: 'Latenz',
       loss: 'Verluste',
       audio: 'Audio',
+      record: 'Aufnehmen',
+      recordStop: 'Stoppen',
+      recordSaved: 'Video gespeichert',
     },
   },
 };

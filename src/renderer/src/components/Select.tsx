@@ -40,7 +40,7 @@ export function Select<T extends string | number>({
     const onDocClick = (e: MouseEvent) => {
       if (!rootRef.current?.contains(e.target as Node)) close();
     };
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         close();

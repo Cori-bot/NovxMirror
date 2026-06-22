@@ -93,7 +93,7 @@ export function Onboarding() {
       <div className="onboarding-dialog">
         <div className="onboarding-progress">
           <div
-            className={`onboarding-dot${step === 'language' ? ' is-active' : step !== 'language' ? ' is-done' : ''}`}
+            className={`onboarding-dot${step === 'language' ? ' is-active' : ' is-done'}`}
           />
           <div
             className={`onboarding-dot${step === 'name' ? ' is-active' : step === 'bonjour' ? ' is-done' : ''}`}

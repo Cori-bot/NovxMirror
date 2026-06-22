@@ -51,6 +51,13 @@ const api = {
   },
   onThemeChanged: (cb: (theme: string) => void): Unsubscribe => subscribe('theme-changed', cb),
   onLocaleChanged: (cb: (locale: string) => void): Unsubscribe => subscribe('locale-changed', cb),
+  onVideoRouteSwitch: (cb: () => void): Unsubscribe => {
+    const handler = (): void => cb();
+    ipcRenderer.on('video-route-switch', handler);
+    return () => {
+      ipcRenderer.removeListener('video-route-switch', handler);
+    };
+  },
 
   openExternal: (url: string): Promise<boolean> =>
     ipcRenderer.invoke('open-external', url) as Promise<boolean>,
@@ -69,6 +76,9 @@ const api = {
 
   reset: (): void => ipcRenderer.send('tools-reset'),
   screenshot: (): void => ipcRenderer.send('tools-screenshot'),
+
+  saveRecording: (data: Uint8Array): Promise<string | null> =>
+    ipcRenderer.invoke('save-recording', data) as Promise<string | null>,
 } as const;
 
 export type AirmirrorApi = typeof api;

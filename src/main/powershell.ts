@@ -56,6 +56,12 @@ export function toPowerShellSingleQuoted(value: string): string {
   return `'${String(value ?? '').replace(/'/g, "''")}'`;
 }
 
+// Échappe un chemin pour insertion DANS une chaîne PowerShell entre apostrophes
+// simples ('...'), comme `$hf = '${escapePath(path)}'`. Dans ce contexte
+// l'antislash est LITTÉRAL (ne pas le doubler) et seule l'apostrophe est
+// spéciale (se double en ''). L'ancienne version doublait les antislashs
+// (no-op par chance via la normalisation Win32) et n'échappait PAS l'apostrophe,
+// cassant le script — voire injection — sur un chemin du type C:\Users\O'Brien\.
 export function escapePath(p: string): string {
-  return p.replace(/\\/g, '\\\\');
+  return String(p ?? '').replace(/'/g, "''");
 }

@@ -1,4 +1,6 @@
-import { app, dialog, ipcMain, shell } from 'electron';
+import { app, desktopCapturer, dialog, ipcMain, session, shell, type OpenDialogOptions } from 'electron';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { state } from './state';
 import { uxplay } from './uxplay-manager';
 import { loadSettings, saveSettings, normalizeSettings, getScreenshotDirectory } from './settings';
@@ -15,12 +17,7 @@ import {
   normalizeVideoAspect,
   persistVideoAspect,
 } from './video-window';
-import {
-  closeFreezeForReset,
-  closeFreezeOverlay,
-  startNativeFollow,
-  stopNativeFollow,
-} from './freeze';
+import { closeFreezeForReset, closeFreezeOverlay, stopNativeFollow } from './freeze';
 import { emitThemeAndLocale, quitApp } from './windows';
 import { updateTrayMenu } from './tray';
 import { cleanupTempFiles } from './paths';
@@ -33,26 +30,39 @@ import type { Settings, SettingsPayload } from './types';
 const MAX_STREAM_WIDTH = 3840;
 const MAX_STREAM_HEIGHT = 2160;
 
-export function startUxPlay(settings: Settings): boolean {
+export function startUxPlay(settings: Settings, isAutoRestart = false): boolean {
+  // Garde anti-double-lancement : autoStart (index.ts) et le handler IPC 'start'
+  // appellent tous deux startUxPlay via checkBonjourService (async). Sans cette
+  // garde, deux appels concurrents pouvaient relancer UxPlay (kill+respawn).
+  if (uxplay.isRunning()) return true;
   const normalized = normalizeSettings(settings);
   const videoCrop = getVideoCropConfigForResolution(MAX_STREAM_WIDTH, MAX_STREAM_HEIGHT);
-  return uxplay.start({
-    name: normalized.name,
-    pin: normalized.pinEnabled ? normalized.pin : null,
-    fps: normalized.fps,
-    maxWidth: MAX_STREAM_WIDTH,
-    maxHeight: MAX_STREAM_HEIGHT,
-    audioEnabled: normalized.audioEnabled,
-    videoCrop,
-  });
+  return uxplay.start(
+    {
+      name: normalized.name,
+      pin: normalized.pinEnabled ? normalized.pin : null,
+      fps: normalized.fps,
+      maxWidth: MAX_STREAM_WIDTH,
+      maxHeight: MAX_STREAM_HEIGHT,
+      audioEnabled: normalized.audioEnabled,
+      videoCrop,
+    },
+    isAutoRestart,
+  );
 }
 
 export function bindUxPlayEvents(): void {
   uxplay.on('restart-requested', () => {
+    // Capture l'intention courante AVANT le check Bonjour async : si l'utilisateur
+    // fait stop/start pendant ce délai, la génération change et on abandonne.
+    const gen = uxplay.getRestartGeneration();
     checkBonjourService((running) => {
+      if (uxplay.getRestartGeneration() !== gen || uxplay.isRunning()) return;
       if (running) {
         const settings = loadSettings();
-        startUxPlay(settings);
+        // isAutoRestart=true → ne PAS réinitialiser restartCount, sinon le cap de
+        // 2 tentatives ne s'applique jamais (boucle de restart infinie).
+        startUxPlay(settings, true);
       }
     });
   });
@@ -149,15 +159,18 @@ export function bindUxPlayEvents(): void {
     if (/output window was closed/i.test(msg)) return;
     if (state.mainWindow) state.mainWindow.webContents.send('app-error', `GStreamer: ${msg}`);
   });
+
+  uxplay.on('video-route-switch', () => {
+    if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+      state.mainWindow.webContents.send('video-route-switch');
+    }
+  });
 }
 
 function onStartReceiverFromTray(): void {
   const s = loadSettings();
   startUxPlay(s);
 }
-
-// suppress unused
-void startNativeFollow;
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('get-status', () => uxplay.getStatus());
@@ -223,11 +236,14 @@ export function registerIpcHandlers(): void {
       typeof currentPath === 'string' && currentPath.trim()
         ? currentPath.trim()
         : getScreenshotDirectory();
-    const result = await dialog.showOpenDialog(state.mainWindow ?? undefined, {
+    const dialogOptions: OpenDialogOptions = {
       title: 'Choose screenshot folder',
       properties: ['openDirectory', 'createDirectory'],
       defaultPath: fallback,
-    });
+    };
+    const result = state.mainWindow
+      ? await dialog.showOpenDialog(state.mainWindow, dialogOptions)
+      : await dialog.showOpenDialog(dialogOptions);
     if (result.canceled || !result.filePaths.length) return null;
     return result.filePaths[0];
   });
@@ -284,5 +300,48 @@ export function registerIpcHandlers(): void {
   ipcMain.on('freeze-set-interactive', (_, interactive: boolean) => {
     if (!state.freezeWindow || state.freezeWindow.isDestroyed()) return;
     state.freezeWindow.setIgnoreMouseEvents(!interactive, { forward: true });
+  });
+
+  // Enregistrement d'écran : quand le renderer appelle getDisplayMedia(), on
+  // route automatiquement la capture vers la FENÊTRE vidéo native (titrée
+  // "NovX Mirror[ - device]"), sans afficher de sélecteur. Fallback écran entier
+  // si la fenêtre n'est pas trouvée. Sur Windows 11 (Windows Graphics Capture),
+  // la capture de la fenêtre d3d11 fonctionne. NB: les contenus protégés (DRM,
+  // Snapchat/Insta) restent noirs — la protection est appliquée côté iOS.
+  session.defaultSession.setDisplayMediaRequestHandler(
+    (_request, callback) => {
+      desktopCapturer
+        .getSources({ types: ['window', 'screen'] })
+        .then((sources) => {
+          const title = state.gstWindowTitle || 'NovX Mirror';
+          const windowSrc =
+            sources.find((s) => s.name === title) ??
+            sources.find((s) => s.name.includes('NovX Mirror'));
+          const screenSrc = sources.find((s) => s.id.startsWith('screen'));
+          const chosen = windowSrc ?? screenSrc ?? sources[0];
+          if (chosen) callback({ video: chosen, audio: 'loopback' });
+          else callback({});
+        })
+        .catch(() => callback({}));
+    },
+    { useSystemPicker: false },
+  );
+
+  ipcMain.handle('save-recording', (_, data: unknown): string | null => {
+    if (!(data instanceof Uint8Array)) return null;
+    const dir = getScreenshotDirectory();
+    const stamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, '-')
+      .replace('T', '_')
+      .slice(0, 19);
+    const file = join(dir, `NOVX-recording-${stamp}.webm`);
+    try {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(file, Buffer.from(data));
+      return file;
+    } catch {
+      return null;
+    }
   });
 }

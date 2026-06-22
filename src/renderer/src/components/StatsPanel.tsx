@@ -1,6 +1,7 @@
 import { useAppStore } from '../store/app';
 import { useTimer } from '../hooks/useTimer';
 import { useT } from '../i18n/useT';
+import { RecordButton } from './RecordButton';
 
 interface StatProps {
   label: string;
@@ -25,7 +26,7 @@ export function StatsPanel() {
   const statusData = useAppStore((s) => s.statusData);
   const stats = useAppStore((s) => s.streamStats);
 
-  const elapsed = useTimer(status === 'connected' ? (statusData.connectedAt ?? new Date()) : null);
+  const elapsed = useTimer(status === 'connected' ? (statusData.connectedAt ?? null) : null);
 
   if (status !== 'connected') return null;
 
@@ -44,6 +45,7 @@ export function StatsPanel() {
         <div className="stats-pulse-dot" />
         <span className="stats-header-label">{t('stats.live')}</span>
         <span className="stats-header-device">{statusData.device ?? '—'}</span>
+        <RecordButton />
       </div>
       <div className="stats-grid">
         <Stat label={t('stats.duration')} value={elapsed} accent />

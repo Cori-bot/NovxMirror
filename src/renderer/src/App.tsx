@@ -78,6 +78,12 @@ export default function App() {
     unsubscribers.push(window.airmirror.onThemeChanged((theme) => setTheme(theme as Theme)));
     unsubscribers.push(window.airmirror.onLocaleChanged((locale) => setLocale(locale as Locale)));
     unsubscribers.push(window.airmirror.onBonjourMissing(() => setBonjourMissing(true)));
+    unsubscribers.push(
+      window.airmirror.onVideoRouteSwitch(() => {
+        const tt = tRef.current;
+        showError(tt('error.videoRouteTitle'), tt('error.videoRouteDetail'));
+      }),
+    );
 
     return () => {
       unsubscribers.forEach((u) => u());

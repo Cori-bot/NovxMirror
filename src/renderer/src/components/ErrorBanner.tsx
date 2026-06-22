@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../store/app';
 import { useT } from '../i18n/useT';
 
@@ -7,14 +7,22 @@ export function ErrorBanner() {
   const errorMessage = useAppStore((s) => s.errorMessage);
   const errorDetails = useAppStore((s) => s.errorDetails);
   const hideError = useAppStore((s) => s.hideError);
+  const [expanded, setExpanded] = useState(false);
 
+  // Auto-masquage après 6s — suspendu tant que l'utilisateur a déplié les
+  // détails (sinon le bandeau se ferme pendant qu'il les lit).
   useEffect(() => {
-    if (!errorMessage) return;
+    if (!errorMessage || expanded) return;
     const id = setTimeout(hideError, 6000);
     return () => {
       clearTimeout(id);
     };
-  }, [errorMessage, hideError]);
+  }, [errorMessage, expanded, hideError]);
+
+  // Chaque nouvelle erreur repart repliée.
+  useEffect(() => {
+    setExpanded(false);
+  }, [errorMessage]);
 
   if (!errorMessage) return null;
 
@@ -33,8 +41,9 @@ export function ErrorBanner() {
         <line x1="12" y1="17" x2="12.01" y2="17" />
       </svg>
       <span>{errorMessage}</span>
+      {expanded && errorDetails ? <span className="error-details">{errorDetails}</span> : null}
       {errorDetails && errorDetails !== errorMessage ? (
-        <button className="error-link" onClick={hideError}>
+        <button className="error-link" onClick={() => setExpanded((v) => !v)}>
           {t('error.details')}
         </button>
       ) : null}

@@ -6,7 +6,14 @@ const config: Config = {
     './src/renderer/freeze-overlay.html',
     './src/renderer/src/**/*.{ts,tsx}',
   ],
-  darkMode: ['class', '[data-theme="dark"]', '[data-theme="midnight"]'],
+  // Stratégie `variant` + tableau = seule forme typée valide pour plusieurs
+  // sélecteurs en Tailwind v3 (la forme ['class', sel] n'accepte qu'UN sélecteur).
+  // Note: l'app n'utilise aucune utilitaire `dark:` (thème géré via variables CSS
+  // + [data-theme]), donc c'est surtout du futur-proofing/cohérence de type.
+  darkMode: [
+    'variant',
+    ['&:is(.dark *)', '&:is([data-theme="dark"] *)', '&:is([data-theme="midnight"] *)'],
+  ],
   theme: {
     extend: {
       colors: {
