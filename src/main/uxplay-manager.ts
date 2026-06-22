@@ -130,7 +130,6 @@ export class UxPlayManager extends EventEmitter {
 
   private buildArgs(): string[] {
     const args: string[] = [];
-    const crop = this.getVideoCropConfig();
 
     args.push('-n', this.options.name);
     args.push('-fps', String(this.options.fps));
@@ -148,10 +147,15 @@ export class UxPlayManager extends EventEmitter {
       args.push('-na');
     }
 
-    args.push(
-      '-vs',
-      `videocrop left=${crop.left} right=${crop.right} top=${crop.top} bottom=${crop.bottom} ! d3d11videosink force-aspect-ratio=true`,
-    );
+    // Pipeline ZÉRO-COPIE GPU : le décodeur matériel d3d11 (cf. GST_PLUGIN_FEATURE_RANK)
+    // envoie ses textures NV12 DIRECTEMENT à d3d11videosink (conversion YUV->RGB sur
+    // GPU), sans élément CPU intermédiaire. On a RETIRÉ `videocrop` (mémoire système)
+    // qui forçait un aller-retour GPU->CPU->GPU par frame (download + crop + upload).
+    // ⚠️ Effet de bord possible à VÉRIFIER VISUELLEMENT : un fin liseré d'overscan
+    // iPhone (~6px) peut réapparaître sur les bords. Pour revenir en arrière, remettre :
+    //   const crop = this.getVideoCropConfig();
+    //   `videocrop left=${crop.left} right=${crop.right} top=${crop.top} bottom=${crop.bottom} ! d3d11videosink force-aspect-ratio=true`
+    args.push('-vs', 'd3d11videosink force-aspect-ratio=true');
     args.push('-vsync', 'no');
     args.push('-al', '0');
 
