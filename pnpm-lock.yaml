@@ -22,7 +22,7 @@ importers:
         version: 5.0.14(@types/react@18.3.28)(react@18.3.1)
     devDependencies:
       '@eslint/js':
-        specifier: ^9.15.0
+        specifier: ^9.39.4
         version: 9.39.4
       '@types/node':
         specifier: ^22.9.0
@@ -55,7 +55,7 @@ importers:
         specifier: ^2.3.0
         version: 2.3.0(vite@5.4.21(@types/node@22.19.17))
       eslint:
-        specifier: ^9.15.0
+        specifier: ^9.39.4
         version: 9.39.4(jiti@1.21.7)
       eslint-import-resolver-typescript:
         specifier: ^3.6.3
@@ -2122,10 +2122,6 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
-  js-yaml@4.1.1:
-    resolution: {integrity: sha512-qQKT4zQxXl8lLwBtHMWwaTcGfFOZviOJet3Oy/xmGk2gZH677CJM9EvtfdSkgWcATZhj/55JZ0rmy3myCT5lsA==}
-    hasBin: true
-
   js-yaml@4.2.0:
     resolution: {integrity: sha512-ePWsvanv0DWuDRsW8dnt+R4jQ31SCRCQ7hhNcPXZPsoBZiemuZNYGf7adZdqX2D86j6rvKp3RpCxVTSb8WQlOw==}
     hasBin: true
@@ -3463,7 +3459,7 @@ snapshots:
       globals: 14.0.0
       ignore: 5.3.2
       import-fresh: 3.3.1
-      js-yaml: 4.1.1
+      js-yaml: 4.2.0
       minimatch: 3.1.5
       strip-json-comments: 3.1.1
     transitivePeerDependencies:
@@ -5319,10 +5315,6 @@ snapshots:
   jiti@2.7.0: {}
 
   js-tokens@4.0.0: {}
-
-  js-yaml@4.1.1:
-    dependencies:
-      argparse: 2.0.1
 
   js-yaml@4.2.0:
     dependencies:
