@@ -309,7 +309,7 @@ export function registerIpcHandlers(): void {
   // la capture de la fenêtre d3d11 fonctionne. NB: les contenus protégés (DRM,
   // Snapchat/Insta) restent noirs — la protection est appliquée côté iOS.
   session.defaultSession.setDisplayMediaRequestHandler(
-    (_request, callback) => {
+    (request, callback) => {
       desktopCapturer
         .getSources({ types: ['window', 'screen'] })
         .then((sources) => {
@@ -319,8 +319,14 @@ export function registerIpcHandlers(): void {
             sources.find((s) => s.name.includes('NovX Mirror'));
           const screenSrc = sources.find((s) => s.id.startsWith('screen'));
           const chosen = windowSrc ?? screenSrc ?? sources[0];
-          if (chosen) callback({ video: chosen, audio: 'loopback' });
-          else callback({});
+          if (!chosen) {
+            callback({});
+            return;
+          }
+          // Audio loopback UNIQUEMENT si le renderer l'a demandé : ainsi le
+          // retry « vidéo seule » (audio:false) ne tente pas un loopback qui
+          // échoue ("Could not start audio source").
+          callback(request.audioRequested ? { video: chosen, audio: 'loopback' } : { video: chosen });
         })
         .catch(() => callback({}));
     },

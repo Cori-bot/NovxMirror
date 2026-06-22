@@ -3,6 +3,7 @@ import logo from '../assets/novx-logo.svg';
 import { useAppStore } from '../store/app';
 import { useT } from '../i18n/useT';
 import { StatsPanel } from '../components/StatsPanel';
+import { RecordButton } from '../components/RecordButton';
 
 export function HomePage() {
   const t = useT();
@@ -119,6 +120,7 @@ export function HomePage() {
                 </svg>
                 Screen
               </button>
+              <RecordButton />
             </div>
           ) : null}
         </div>

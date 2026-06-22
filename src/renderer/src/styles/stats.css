@@ -58,45 +58,6 @@
   text-overflow: ellipsis;
 }
 
-.stats-record-btn {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-  background: var(--surface-2, rgba(255, 255, 255, 0.04));
-  color: var(--fg, #e5e7eb);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    background 160ms ease;
-}
-
-.stats-record-btn:hover {
-  border-color: rgba(239, 68, 68, 0.5);
-}
-
-.stats-record-icon {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  background: #ef4444;
-}
-
-.stats-record-btn.is-recording {
-  border-color: rgba(239, 68, 68, 0.6);
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
-}
-
-.stats-record-btn.is-recording .stats-record-icon {
-  border-radius: 2px;
-  animation: stats-pulse 1.6s ease-out infinite;
-}
 
 .stats-grid {
   display: grid;

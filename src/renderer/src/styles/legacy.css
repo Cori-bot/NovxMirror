@@ -612,6 +612,17 @@ body {
   transform: scale(0.97);
 }
 
+.action-btn.is-recording {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.action-btn.is-recording:hover {
+  border-color: rgba(239, 68, 68, 0.8);
+  background: rgba(239, 68, 68, 0.16);
+}
+
 .footer-link {
   border: none;
   background: transparent;

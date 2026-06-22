@@ -1,7 +1,6 @@
 import { useAppStore } from '../store/app';
 import { useTimer } from '../hooks/useTimer';
 import { useT } from '../i18n/useT';
-import { RecordButton } from './RecordButton';
 
 interface StatProps {
   label: string;
@@ -45,7 +44,6 @@ export function StatsPanel() {
         <div className="stats-pulse-dot" />
         <span className="stats-header-label">{t('stats.live')}</span>
         <span className="stats-header-device">{statusData.device ?? '—'}</span>
-        <RecordButton />
       </div>
       <div className="stats-grid">
         <Stat label={t('stats.duration')} value={elapsed} accent />
@@ -55,6 +53,8 @@ export function StatsPanel() {
         <Stat label={t('stats.latency')} value={latencyText} />
         <Stat label={t('stats.loss')} value={lossText} />
         <Stat label={t('stats.audio')} value={stats.audio ? 'On' : 'Off'} />
+        <Stat label={t('stats.codec')} value={stats.codec ?? '—'} />
+        <Stat label={t('stats.connection')} value="Wi-Fi" />
       </div>
     </div>
   );
