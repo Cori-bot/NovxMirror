@@ -581,7 +581,12 @@ body {
 }
 
 .action-btn {
-  flex: 1;
+  flex: 1 1 0;
+  /* min-width:0 → largeurs strictement égales, indépendantes du texte : le bouton
+     REC ne change pas de taille entre "Enregistrer" et "Arrêter". nowrap empêche
+     le passage à 2 lignes (qui ferait varier la hauteur et bouger toute l'UI). */
+  min-width: 0;
+  white-space: nowrap;
   height: 42px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--btn-border);
