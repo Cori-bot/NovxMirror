@@ -10,7 +10,8 @@ Commits sur la branche `feat/audit-quickwins-recording` :
 - `f2e1dfd` feat: quick-wins + bugs + perf + features (TikTok, REC)
 - `073eda0` chore(deps): vague 1 (Electron 42, builder, typescript-eslint, zustand, geist)
 - `e63f424` chore(deps): eslint 9.39.4 (ESLint 10 différé)
-- `be37adc` perf(gpu): pipeline zéro-copie (videocrop retiré) — à valider visuellement
+- `be37adc` perf(gpu): pipeline zéro-copie (videocrop retiré) — REVERTÉ par f27d0a4
+- `f27d0a4` fix: bords noirs (revert zéro-copie), REC à gauche, audio enregistrement, stat connexion
 
 ## 1. État courant
 
@@ -97,11 +98,23 @@ src/renderer/src/App.tsx
 
 ## 4. Tâches restantes (par workstream)
 
-### GPU zero-copy — ✅ FAIT (commit perf(gpu), À VALIDER VISUELLEMENT)
-- [x] `videocrop` retiré du `-vs` (uxplay-manager.ts buildArgs) → decode d3d11 →
-  d3d11videosink direct (zéro-copie). Validé compile/lint/build.
-- [ ] **À VÉRIFIER SUR DEVICE** : pas de liseré d'overscan visible aux bords. Si liseré
-  gênant → revert (instructions en commentaire dans buildArgs) ou crop GPU-side.
+### GPU zero-copy — ⏪ REVERTÉ (test device : bords noirs)
+- Le retrait de videocrop causait des bords noirs haut/bas (aspect fenêtre tuné sur
+  dims croppées). REVERTÉ en f27d0a4. Decode GPU reste garanti par
+  GST_PLUGIN_FEATURE_RANK. Pour vraiment faire le zéro-copie : recalculer l'aspect
+  (ipc.ts) sur les dims PLEINES + gérer l'overscan 6px côté fenêtre, avec test device.
+
+### Retours device (Round 2) — ✅ FAITS (commit f27d0a4)
+- [x] Bords noirs fenêtre → revert videocrop (cf. ci-dessus).
+- [x] Enregistrement "NotReadableError: Could not start audio source" → audio loopback
+  conditionnel (handler) + fallback vidéo-seule (RecordButton).
+- [x] Bouton REC déplacé dans l'action-strip (gauche, avec Reset/Screen).
+- [x] StatsPanel : ajout mode connexion (Wi-Fi) + codec.
+- [ ] **TikTok plein écran → 3840×2160 (barres latérales)** : iOS étend le mirroring à
+  la résolution annoncée (-s 3840x2160) avec le portrait centré. PAS la route HLS
+  (le contenu s'affiche). Non recadrable sans reconfigurer UxPlay (couperait la
+  session). PISTE À TESTER : annoncer une résolution portrait dans ipc.ts
+  (MAX_STREAM_WIDTH/HEIGHT) — affecte tous les apps, valider sur device.
 
 ### Deps Vague 1 — ✅ FAIT (2 commits chore(deps), À LAUNCH-TESTER)
 - [x] Electron `^41.3.0` → `^42.4.1` (43 encore beta) ; electron-builder → `^26.15.3` ;
