@@ -62,12 +62,6 @@ export function emitThemeAndLocale(): void {
   }
 }
 
-export function showMainWindow(): void {
-  if (!state.mainWindow) return;
-  if (state.mainWindow.isVisible()) state.mainWindow.focus();
-  else state.mainWindow.show();
-}
-
 export function quitApp(): void {
   state.isQuitting = true;
   app.quit();

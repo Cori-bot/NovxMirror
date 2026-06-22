@@ -3,7 +3,6 @@ import type { Config } from 'tailwindcss';
 const config: Config = {
   content: [
     './src/renderer/index.html',
-    './src/renderer/freeze-overlay.html',
     './src/renderer/src/**/*.{ts,tsx}',
   ],
   // Stratégie `variant` + tableau = seule forme typée valide pour plusieurs

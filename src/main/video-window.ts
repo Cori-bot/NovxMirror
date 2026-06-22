@@ -12,24 +12,7 @@ import {
   GST_SHOW_RETRY_DELAY,
   GST_SHOW_MAX_ATTEMPTS,
 } from './state';
-import type {
-  OverlayLayout,
-  Resolution,
-  Theme,
-  VideoAspect,
-  VideoBounds,
-  VideoCrop,
-} from './types';
-
-export function resolutionToDimensions(res: Resolution): { w: number; h: number } {
-  const map: Record<Resolution, { w: number; h: number }> = {
-    '720p': { w: 1280, h: 720 },
-    '1080p': { w: 1920, h: 1080 },
-    '1440p': { w: 2560, h: 1440 },
-    '4k': { w: 3840, h: 2160 },
-  };
-  return map[res] ?? map['1080p'];
-}
+import type { Theme, VideoAspect, VideoBounds, VideoCrop } from './types';
 
 export function getVideoCropConfigForResolution(_w: number, _h: number): VideoCrop {
   return { left: 6, right: 6, top: 2, bottom: 0 };
@@ -497,55 +480,6 @@ try { [NovxTheme]::DwmSetWindowAttribute($hw, 19, [ref]$dark, 4) | Out-Null } ca
 
 type RectCallback = (rect: VideoBounds | null) => void;
 
-export function getNativeWindowRect(pid: number, callback: RectCallback): void {
-  const hf = escapePath(gstHwndFile(pid));
-  runPSResult(
-    `
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class NovxRect {
-    [StructLayout(LayoutKind.Sequential)]
-    public struct RECT {
-        public int Left;
-        public int Top;
-        public int Right;
-        public int Bottom;
-    }
-    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
-    [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hWnd);
-}
-"@
-$hf = '${hf}'
-$hw = [IntPtr]::Zero
-if (Test-Path $hf) {
-    $raw = (Get-Content $hf -Raw).Trim()
-    if ($raw) { $hw = [IntPtr][long]$raw }
-}
-if ($hw -eq [IntPtr]::Zero -or -not [NovxRect]::IsWindow($hw)) { exit 2 }
-$rect = New-Object NovxRect+RECT
-if (-not [NovxRect]::GetWindowRect($hw, [ref]$rect)) { exit 3 }
-@{
-  x = $rect.Left
-  y = $rect.Top
-  width = $rect.Right - $rect.Left
-  height = $rect.Bottom - $rect.Top
-} | ConvertTo-Json -Compress
-`,
-    (err, stdout) => {
-      if (err || !stdout?.trim()) {
-        callback(null);
-        return;
-      }
-      try {
-        callback(JSON.parse(stdout.trim()) as VideoBounds);
-      } catch {
-        callback(null);
-      }
-    },
-  );
-}
-
 export function getNativeContentRect(pid: number, callback: RectCallback): void {
   const hf = escapePath(gstHwndFile(pid));
   runPSResult(
@@ -603,33 +537,6 @@ if (-not [NovxClientRect]::ClientToScreen($hw, [ref]$pt)) { exit 4 }
       }
     },
   );
-}
-
-export function getNativeOverlayLayout(
-  pid: number,
-  callback: (layout: OverlayLayout | null) => void,
-): void {
-  getNativeWindowRect(pid, (windowRect) => {
-    if (!windowRect) {
-      callback(null);
-      return;
-    }
-    getNativeContentRect(pid, (contentRect) => {
-      if (!contentRect) {
-        callback(null);
-        return;
-      }
-      callback({
-        window: windowRect,
-        content: {
-          x: contentRect.x - windowRect.x,
-          y: contentRect.y - windowRect.y,
-          width: contentRect.width,
-          height: contentRect.height,
-        },
-      });
-    });
-  });
 }
 
 type CaptureCallback = (err: Error | null, rect: VideoBounds | null) => void;
@@ -929,10 +836,9 @@ export function takeScreenshot(targetDir: string): void {
   });
 }
 
-export function resetVideoWindow(onFreezeClose: () => void): void {
+export function resetVideoWindow(): void {
   if (!state.gstPid) return;
   const centeredBounds = getNativeVideoBounds('center');
-  if (state.isFrozen) onFreezeClose();
   resetNativeWindow(state.gstPid, centeredBounds);
   setTimeout(() => {
     if (state.gstPid) syncVisibleGStreamer(state.gstPid, 0, centeredBounds);

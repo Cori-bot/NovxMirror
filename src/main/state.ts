@@ -3,16 +3,12 @@ import type { Locale, Theme, VideoAspect } from './types';
 
 interface AppState {
   mainWindow: BrowserWindow | null;
-  freezeWindow: BrowserWindow | null;
   tray: Tray | null;
   gstPid: number | null;
   gstWindowTitle: string;
-  isFrozen: boolean;
-  lastFreezeImage: string | null;
   currentDeviceName: string;
   currentTheme: Theme;
   currentLocale: Locale;
-  nativeFollowTimer: ReturnType<typeof setInterval> | null;
   videoIsPinned: boolean;
   streamAspect: VideoAspect | null;
   streamIsLandscape: boolean;
@@ -22,16 +18,12 @@ interface AppState {
 
 export const state: AppState = {
   mainWindow: null,
-  freezeWindow: null,
   tray: null,
   gstPid: null,
   gstWindowTitle: 'NovX Mirror',
-  isFrozen: false,
-  lastFreezeImage: null,
   currentDeviceName: '',
   currentTheme: 'dark',
   currentLocale: 'fr',
-  nativeFollowTimer: null,
   videoIsPinned: false,
   streamAspect: null,
   streamIsLandscape: false,

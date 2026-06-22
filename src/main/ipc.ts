@@ -17,7 +17,6 @@ import {
   normalizeVideoAspect,
   persistVideoAspect,
 } from './video-window';
-import { closeFreezeForReset, closeFreezeOverlay, stopNativeFollow } from './freeze';
 import { emitThemeAndLocale, quitApp } from './windows';
 import { updateTrayMenu } from './tray';
 import { cleanupTempFiles } from './paths';
@@ -122,9 +121,6 @@ export function bindUxPlayEvents(): void {
         notifyDeviceDisconnected();
         lastConnectedDevice = null;
       }
-      closeFreezeOverlay();
-      stopNativeFollow();
-      state.isFrozen = false;
       if (state.streamResizeTimer) {
         clearTimeout(state.streamResizeTimer);
         state.streamResizeTimer = null;
@@ -294,13 +290,8 @@ export function registerIpcHandlers(): void {
     }
   });
 
-  ipcMain.on('video-reset-window', () => resetVideoWindow(closeFreezeForReset));
-  ipcMain.on('tools-reset', () => resetVideoWindow(closeFreezeForReset));
+  ipcMain.on('tools-reset', () => resetVideoWindow());
   ipcMain.on('tools-screenshot', () => takeScreenshot(getScreenshotDirectory()));
-  ipcMain.on('freeze-set-interactive', (_, interactive: boolean) => {
-    if (!state.freezeWindow || state.freezeWindow.isDestroyed()) return;
-    state.freezeWindow.setIgnoreMouseEvents(!interactive, { forward: true });
-  });
 
   // Enregistrement d'écran : quand le renderer appelle getDisplayMedia(), on
   // route automatiquement la capture vers la FENÊTRE vidéo native (titrée

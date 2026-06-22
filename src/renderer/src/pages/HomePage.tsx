@@ -45,7 +45,7 @@ export function HomePage() {
 
   return (
     <div
-      className={`panel${useAppStore.getState().activePanel === 'home' ? ' active' : ''}`}
+      className="panel active"
       id="panel-home"
     >
       <div className={`home-body${isConnected ? ' has-stats' : ''}`}>

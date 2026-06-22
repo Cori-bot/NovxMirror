@@ -1,5 +1,3 @@
-import type { LogEntry } from './types';
-
 export function shouldIgnoreLogLine(line: string): boolean {
   const normalized = String(line || '').trim();
   if (!normalized) return true;
@@ -49,11 +47,4 @@ export function shouldIgnoreExpectedShutdownLine(line: string): boolean {
   if (lower.includes('raop_rtp_mirror->running is no longer true')) return true;
 
   return false;
-}
-
-export function makeLogEntry(text: string): LogEntry {
-  return {
-    time: new Date().toLocaleTimeString('fr-FR'),
-    text,
-  };
 }

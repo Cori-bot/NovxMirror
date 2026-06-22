@@ -73,7 +73,7 @@ export function SettingsPage() {
 
   return (
     <div
-      className={`panel${useAppStore.getState().activePanel === 'settings' ? ' active' : ''}`}
+      className="panel active"
       id="panel-settings"
     >
       <div className="settings-form">

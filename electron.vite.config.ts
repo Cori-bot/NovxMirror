@@ -24,7 +24,6 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/preload/index.ts'),
-          freeze: resolve(__dirname, 'src/preload/freeze.ts'),
         },
       },
     },
@@ -41,7 +40,6 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
-          freeze: resolve(__dirname, 'src/renderer/freeze-overlay.html'),
         },
       },
     },

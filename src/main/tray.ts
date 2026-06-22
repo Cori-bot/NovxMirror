@@ -5,7 +5,6 @@ import { getScreenshotDirectory } from './settings';
 import { checkBonjourService } from './bonjour';
 import { getTrayWindowIcon, getTrayMenuIcon } from './paths';
 import { resetVideoWindow, takeScreenshot, toggleVideoPinned } from './video-window';
-import { closeFreezeForReset } from './freeze';
 import { quitApp } from './windows';
 import type { Locale, ReceiverStatus } from './types';
 
@@ -113,7 +112,7 @@ export function updateTrayMenu(onStartReceiver: () => void): void {
   const connectedItems: MenuItemConstructorOptions[] = isConnected
     ? [
         { type: 'separator' },
-        { label: t.reset, click: () => resetVideoWindow(closeFreezeForReset) },
+        { label: t.reset, click: () => resetVideoWindow() },
         {
           label: t.screenshot,
           click: () => takeScreenshot(getScreenshotDirectory()),
