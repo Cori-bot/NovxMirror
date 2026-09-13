@@ -1,14 +1,12 @@
 import { screen } from 'electron';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { runPS, runPSResult, toPowerShellSingleQuoted, escapePath } from './powershell';
-import { gstHwndFile, gstAspectFile, gstBoundsFile, getIcoPath } from './paths';
+import { gstHwndFile, gstAspectFile, getIcoPath } from './paths';
 import {
   state,
   VIDEO_MARGIN,
   DEFAULT_VIDEO_ASPECT,
   MAX_PORTRAIT_RATIO,
-  PORTRAIT_HORIZONTAL_OVERSCAN_PX,
-  PORTRAIT_VERTICAL_OVERSCAN_PX,
   GST_SHOW_RETRY_DELAY,
   GST_SHOW_MAX_ATTEMPTS,
 } from './state';
@@ -78,14 +76,6 @@ export function getPreferredVideoAspect(): VideoAspect {
   return { ...DEFAULT_VIDEO_ASPECT };
 }
 
-function getHorizontalOverscan(aspect: VideoAspect = getPreferredVideoAspect()): number {
-  return aspect.width < aspect.height ? PORTRAIT_HORIZONTAL_OVERSCAN_PX : 0;
-}
-
-function getVerticalOverscan(aspect: VideoAspect = getPreferredVideoAspect()): number {
-  return aspect.width < aspect.height ? PORTRAIT_VERTICAL_OVERSCAN_PX : 0;
-}
-
 function hwndSnippet(pid: number): string {
   const hf = escapePath(gstHwndFile(pid));
   return `
@@ -98,7 +88,6 @@ if ($hw -eq [IntPtr]::Zero) { exit 0 }`;
 export function startGStreamerWatcher(pid: number, timeoutSecs = 3600): void {
   const hwndFile = escapePath(gstHwndFile(pid));
   const aspectFile = escapePath(gstAspectFile(pid));
-  const boundsFile = escapePath(gstBoundsFile(pid));
   const smallIconFile = escapePath(getIcoPath('tray-icon.ico'));
   const largeIconFile = escapePath(getIcoPath('icon.ico'));
   const darkMode = usesDarkNativeChrome() ? 1 : 0;
@@ -134,12 +123,22 @@ public class NovxW {
     [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
     [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+    [DllImport("user32.dll")] public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+    [DllImport("user32.dll", CharSet = CharSet.Auto)] public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
     [DllImport("user32.dll")] public static extern IntPtr SetCursor(IntPtr hCursor);
     [DllImport("user32.dll", EntryPoint = "SetClassLongPtrW")] public static extern IntPtr SetClassCursor(IntPtr hWnd, int nIndex, IntPtr val);
     [DllImport("user32.dll")] public static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    public struct MONITORINFO {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
     static Dictionary<long, IntPtr> OriginalWndProcByHwnd = new Dictionary<long, IntPtr>();
     static WndProcDelegate CornerOnlyWndProcInstance = CornerOnlyWndProc;
+    public static double TargetRatio = 9.0 / 19.5;
 
     public static void EnsureCornerOnlyResize(IntPtr hWnd) {
         long key = hWnd.ToInt64();
@@ -151,10 +150,156 @@ public class NovxW {
         }
     }
 
+    static void ConstrainSizing(IntPtr hWnd, int edge, IntPtr rectPtr) {
+        if (TargetRatio < 0.05) return;
+        RECT proposed = (RECT)Marshal.PtrToStructure(rectPtr, typeof(RECT));
+        RECT wr, cr;
+        if (!GetWindowRect(hWnd, out wr) || !GetClientRect(hWnd, out cr)) return;
+        int ncW = (wr.Right - wr.Left) - (cr.Right - cr.Left);
+        int ncH = (wr.Bottom - wr.Top) - (cr.Bottom - cr.Top);
+        int clientW = Math.Max(80, proposed.Right - proposed.Left - ncW);
+        int clientH = Math.Max(80, proposed.Bottom - proposed.Top - ncH);
+        int oldW = Math.Max(1, cr.Right - cr.Left);
+        int oldH = Math.Max(1, cr.Bottom - cr.Top);
+        if (Math.Abs(clientW - oldW) >= Math.Abs(clientH - oldH)) {
+            clientH = Math.Max(80, (int)Math.Round(clientW / TargetRatio));
+        } else {
+            clientW = Math.Max(80, (int)Math.Round(clientH * TargetRatio));
+        }
+        int outerW = clientW + ncW;
+        int outerH = clientH + ncH;
+        if (edge == 1 || edge == 4 || edge == 7) proposed.Left = proposed.Right - outerW;
+        else proposed.Right = proposed.Left + outerW;
+        if (edge == 3 || edge == 4 || edge == 5) proposed.Top = proposed.Bottom - outerH;
+        else proposed.Bottom = proposed.Top + outerH;
+        Marshal.StructureToPtr(proposed, rectPtr, false);
+    }
+
+    public static void FitToWorkArea(IntPtr hWnd) {
+        if (IsZoomed(hWnd)) ShowWindow(hWnd, 9);
+        RECT wr, cr;
+        if (!GetWindowRect(hWnd, out wr) || !GetClientRect(hWnd, out cr)) return;
+        int ncW = (wr.Right - wr.Left) - (cr.Right - cr.Left);
+        int ncH = (wr.Bottom - wr.Top) - (cr.Bottom - cr.Top);
+        MONITORINFO mi = new MONITORINFO();
+        mi.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+        IntPtr mon = MonitorFromWindow(hWnd, 2);
+        if (mon == IntPtr.Zero || !GetMonitorInfo(mon, ref mi)) return;
+        RECT work = mi.rcWork;
+        int margin = 8;
+        int maxW = Math.Max(220, work.Right - work.Left - 2 * margin);
+        int maxH = Math.Max(240, work.Bottom - work.Top - 2 * margin);
+        int clientW, clientH;
+        if (TargetRatio >= 1) {
+            clientW = maxW;
+            clientH = Math.Max(1, (int)Math.Round(clientW / TargetRatio));
+            if (clientH > maxH) {
+                clientH = maxH;
+                clientW = Math.Max(1, (int)Math.Round(clientH * TargetRatio));
+            }
+        } else {
+            clientH = maxH;
+            clientW = Math.Max(1, (int)Math.Round(clientH * TargetRatio));
+            if (clientW > maxW) {
+                clientW = maxW;
+                clientH = Math.Max(1, (int)Math.Round(clientW / TargetRatio));
+            }
+        }
+        int outerW = clientW + ncW;
+        int outerH = clientH + ncH;
+        int x = work.Left + (work.Right - work.Left - outerW) / 2;
+        int y = work.Top + (work.Bottom - work.Top - outerH) / 2;
+        SetWindowPos(hWnd, IntPtr.Zero, x, y, outerW, outerH, 0x0044);
+    }
+
+    static RECT LastOuter;
+    static int LastClientW;
+    static int LastClientH;
+    static bool HaveLast;
+    static long LastHwndKey;
+
+    public static void EnforceClientAspect(IntPtr hWnd) {
+        if (TargetRatio < 0.05) return;
+        if (IsZoomed(hWnd)) {
+            FitToWorkArea(hWnd);
+            HaveLast = false;
+            return;
+        }
+        RECT wr, cr;
+        if (!GetWindowRect(hWnd, out wr) || !GetClientRect(hWnd, out cr)) return;
+        long key = hWnd.ToInt64();
+        if (key != LastHwndKey) {
+            HaveLast = false;
+            LastHwndKey = key;
+        }
+        int ncW = (wr.Right - wr.Left) - (cr.Right - cr.Left);
+        int ncH = (wr.Bottom - wr.Top) - (cr.Bottom - cr.Top);
+        int clientW = Math.Max(1, cr.Right - cr.Left);
+        int clientH = Math.Max(1, cr.Bottom - cr.Top);
+        double current = (double)clientW / (double)clientH;
+        double err = Math.Abs(current - TargetRatio) / TargetRatio;
+        if (err <= 0.012) {
+            LastOuter = wr;
+            LastClientW = clientW;
+            LastClientH = clientH;
+            HaveLast = true;
+            return;
+        }
+        bool driveWidth = true;
+        if (HaveLast) {
+            driveWidth = Math.Abs(clientW - LastClientW) >= Math.Abs(clientH - LastClientH);
+        } else if (TargetRatio < 1) {
+            driveWidth = false;
+        }
+        int newW, newH;
+        if (driveWidth) {
+            newW = Math.Max(80, clientW);
+            newH = Math.Max(80, (int)Math.Round(newW / TargetRatio));
+        } else {
+            newH = Math.Max(80, clientH);
+            newW = Math.Max(80, (int)Math.Round(newH * TargetRatio));
+        }
+        int outerW = newW + ncW;
+        int outerH = newH + ncH;
+        int x = wr.Left;
+        int y = wr.Top;
+        if (HaveLast) {
+            int dL = Math.Abs(wr.Left - LastOuter.Left);
+            int dR = Math.Abs(wr.Right - LastOuter.Right);
+            int dT = Math.Abs(wr.Top - LastOuter.Top);
+            int dB = Math.Abs(wr.Bottom - LastOuter.Bottom);
+            if (dL > dR) x = wr.Right - outerW;
+            if (dT > dB) y = wr.Bottom - outerH;
+        }
+        SetWindowPos(hWnd, IntPtr.Zero, x, y, outerW, outerH, 0x0044);
+        LastOuter.Left = x;
+        LastOuter.Top = y;
+        LastOuter.Right = x + outerW;
+        LastOuter.Bottom = y + outerH;
+        LastClientW = newW;
+        LastClientH = newH;
+        HaveLast = true;
+    }
+
     static IntPtr CornerOnlyWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam) {
         long key = hWnd.ToInt64();
         IntPtr previous;
         if (!OriginalWndProcByHwnd.TryGetValue(key, out previous)) {
+            return IntPtr.Zero;
+        }
+        if (msg == 0x0214) {
+            ConstrainSizing(hWnd, wParam.ToInt32(), lParam);
+            return new IntPtr(1);
+        }
+        if (msg == 0x0112) {
+            int cmd = wParam.ToInt32() & 0xFFF0;
+            if (cmd == 0xF030) {
+                FitToWorkArea(hWnd);
+                return IntPtr.Zero;
+            }
+        }
+        if (msg == 0x00A3) {
+            FitToWorkArea(hWnd);
             return IntPtr.Zero;
         }
         IntPtr result = CallWindowProc(previous, hWnd, msg, wParam, lParam);
@@ -184,7 +329,6 @@ public class NovxW {
 "@
 $hf = '${hwndFile}'
 $af = '${aspectFile}'
-$bf = '${boundsFile}'
 $smallIconFile = '${smallIconFile}'
 $largeIconFile = '${largeIconFile}'
 $deadline = (Get-Date).AddSeconds(${String(timeoutSecs)})
@@ -204,7 +348,6 @@ while ((Get-Date) -lt $deadline) {
     if (-not $p) {
         Remove-Item $hf -ErrorAction SilentlyContinue
         Remove-Item $af -ErrorAction SilentlyContinue
-        Remove-Item $bf -ErrorAction SilentlyContinue
         break
     }
     $hw = [NovxW]::FindWindowByPid([uint32]${String(pid)})
@@ -226,77 +369,23 @@ while ((Get-Date) -lt $deadline) {
         $hw.ToInt64() | Set-Content $hf
         $lastHwnd = $hw
     }
-    if ($hw -ne [IntPtr]::Zero) {
-        $rect = New-Object NovxW+RECT
-        if ([NovxW]::GetClientRect($hw, [ref]$rect)) {
-            $cw = $rect.Right - $rect.Left
-            $ch = $rect.Bottom - $rect.Top
-            if ($cw -gt 0 -and $ch -gt 0) {
-                $wr = New-Object NovxW+RECT
-                $wrOk = [NovxW]::GetWindowRect($hw, [ref]$wr)
-                $isZoomed = [NovxW]::IsZoomed($hw)
-                if ($wrOk) {
-                    $isZ = if ($isZoomed) { 1 } else { 0 }
-                    $ncH = ($wr.Bottom - $wr.Top) - $ch
-                    (@{ x = $wr.Left; y = $wr.Top; w = $wr.Right - $wr.Left; h = $wr.Bottom - $wr.Top; z = $isZ; nc = $ncH } | ConvertTo-Json -Compress) | Set-Content $bf
+    if ($hw -ne [IntPtr]::Zero -and [NovxW]::IsWindow($hw)) {
+        if (Test-Path $af) {
+            try {
+                $j = Get-Content $af -Raw | ConvertFrom-Json
+                if ($j.width -gt 0 -and $j.height -gt 0) {
+                    [NovxW]::TargetRatio = [double]$j.width / [double]$j.height
                 }
-                if (-not $isZoomed) {
-                    $aspectWidth = 9.0
-                    $aspectHeight = 19.5
-                    try {
-                        $aspectRaw = Get-Content $af -Raw | ConvertFrom-Json
-                        if ($aspectRaw.width -gt 0 -and $aspectRaw.height -gt 0) {
-                            $aspectWidth = [double]$aspectRaw.width
-                            $aspectHeight = [double]$aspectRaw.height
-                        }
-                    } catch {}
-                    $horizontalOverscan = if ($aspectWidth -lt $aspectHeight) { ${String(PORTRAIT_HORIZONTAL_OVERSCAN_PX)} } else { 0 }
-                    $verticalOverscan = if ($aspectWidth -lt $aspectHeight) { ${String(PORTRAIT_VERTICAL_OVERSCAN_PX)} } else { 0 }
-                    $targetClientHeightFromWidth = [Math]::Max(1, [int][Math]::Round($cw * ($aspectHeight / $aspectWidth)) - $verticalOverscan)
-                    $targetClientWidthFromHeight = [Math]::Max(1, [int][Math]::Round($ch * ($aspectWidth / $aspectHeight)) - $horizontalOverscan)
-                    $deltaHeight = [Math]::Abs($targetClientHeightFromWidth - $ch)
-                    $deltaWidth = [Math]::Abs($targetClientWidthFromHeight - $cw)
-                    if (($deltaHeight -gt 0 -or $deltaWidth -gt 0) -and $wrOk) {
-                        $outerWidth = $wr.Right - $wr.Left
-                        $outerHeight = $wr.Bottom - $wr.Top
-                        $nonClientWidth = $outerWidth - $cw
-                        $nonClientHeight = $outerHeight - $ch
-                        $targetClientWidth = $cw
-                        $targetClientHeight = $ch
-                        if ($deltaWidth -le $deltaHeight) {
-                            $targetClientWidth = $targetClientWidthFromHeight
-                        } else {
-                            $targetClientHeight = $targetClientHeightFromWidth
-                        }
-                        $targetOuterWidth = [Math]::Max(120, $targetClientWidth + $nonClientWidth)
-                        $targetOuterHeight = [Math]::Max(120, $targetClientHeight + $nonClientHeight)
-                        [NovxW]::SetWindowPos($hw, [IntPtr]::Zero, 0, 0, $targetOuterWidth, $targetOuterHeight, 0x0016) | Out-Null
-                        if ($smallIcon -ne [IntPtr]::Zero) {
-                            [NovxW]::SendMessage($hw, 0x0080, [IntPtr]0, $smallIcon) | Out-Null
-                        }
-                        if ($largeIcon -ne [IntPtr]::Zero) {
-                            [NovxW]::SendMessage($hw, 0x0080, [IntPtr]1, $largeIcon) | Out-Null
-                        }
-                    }
-                }
-            }
+            } catch {}
         }
-    }
-    if ($hw -ne [IntPtr]::Zero) {
-        if ($smallIcon -ne [IntPtr]::Zero) {
-            [NovxW]::SendMessage($hw, 0x0080, [IntPtr]0, $smallIcon) | Out-Null
-        }
-        if ($largeIcon -ne [IntPtr]::Zero) {
-            [NovxW]::SendMessage($hw, 0x0080, [IntPtr]1, $largeIcon) | Out-Null
-        }
+        try { [NovxW]::EnforceClientAspect($hw) } catch {}
     }
     if ($hw -eq [IntPtr]::Zero -or ($lastHwnd -ne [IntPtr]::Zero -and -not [NovxW]::IsWindow($lastHwnd))) {
         Remove-Item $hf -ErrorAction SilentlyContinue
         Remove-Item $af -ErrorAction SilentlyContinue
-        Remove-Item $bf -ErrorAction SilentlyContinue
         $lastHwnd = [IntPtr]::Zero
     }
-    Start-Sleep -Milliseconds 50
+    Start-Sleep -Milliseconds 16
 }
 `);
 }
@@ -413,7 +502,6 @@ if ($hw -eq [IntPtr]::Zero -or -not [NovxS]::IsWindow($hw)) { exit 2 }
 $dark = ${String(darkMode)}
 try { [NovxS]::DwmSetWindowAttribute($hw, 20, [ref]$dark, 4) | Out-Null } catch {}
 try { [NovxS]::DwmSetWindowAttribute($hw, 19, [ref]$dark, 4) | Out-Null } catch {}
-try { [NovxS]::EnsureCornerOnlyResize($hw) } catch {}
 if (Test-Path $smallIconFile) {
     $smallIcon = [NovxS]::LoadImage([IntPtr]::Zero, $smallIconFile, 1, 16, 16, 0x00008010)
     if ($smallIcon -ne [IntPtr]::Zero) {
@@ -726,8 +814,6 @@ export function getNativeVideoBounds(position: 'center' | 'right' = 'center'): V
   const workArea = display.workArea;
   const aspect = getPreferredVideoAspect();
   const ratio = Math.max(0.1, aspect.width / aspect.height);
-  const horizontalOverscan = getHorizontalOverscan(aspect);
-  const verticalOverscan = getVerticalOverscan(aspect);
 
   const maxWidth = Math.max(220, workArea.width - VIDEO_MARGIN * 2);
   const maxHeight = Math.max(240, workArea.height - VIDEO_MARGIN * 2);
@@ -743,9 +829,6 @@ export function getNativeVideoBounds(position: 'center' | 'right' = 'center'): V
     height = maxHeight;
     width = Math.round(height * ratio);
   }
-
-  width = Math.max(1, width - horizontalOverscan);
-  height = Math.max(1, height - verticalOverscan);
 
   const x =
     position === 'center'
@@ -774,6 +857,105 @@ export function syncVisibleGStreamer(
     if (attempt + 1 >= GST_SHOW_MAX_ATTEMPTS) return;
     setTimeout(() => syncVisibleGStreamer(pid, attempt + 1, boundsOverride), GST_SHOW_RETRY_DELAY);
   });
+}
+
+/**
+ * Adapte la taille au nouvel aspect SANS changer de moniteur :
+ * centre de la fenêtre conservé, clamp dans le workArea du moniteur courant.
+ * Ignore les fenêtres maximisées Windows — le watcher les convertit en
+ * plus grand cadre au ratio de la vidéo (pas de bandes noires).
+ */
+export function refitVideoWindowInPlace(pid: number): void {
+  if (!pid) return;
+  const aspect = getPreferredVideoAspect();
+  const ratio = Math.max(0.1, aspect.width / aspect.height);
+  const hf = escapePath(gstHwndFile(pid));
+
+  runPS(`
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class NovxRefit {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT { public int Left, Top, Right, Bottom; }
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    public struct MONITORINFO {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+    [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+    [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr h, out RECT r);
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr i, int x, int y, int cx, int cy, uint f);
+    [DllImport("user32.dll")] public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+    [DllImport("user32.dll", CharSet = CharSet.Auto)] public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+}
+"@
+$hf = '${hf}'
+if (-not (Test-Path $hf)) { exit 0 }
+$raw = (Get-Content $hf -Raw).Trim()
+if (-not $raw) { exit 0 }
+$hw = [IntPtr][long]$raw
+if ($hw -eq [IntPtr]::Zero -or -not [NovxRefit]::IsWindow($hw)) { exit 0 }
+if ([NovxRefit]::IsZoomed($hw)) { exit 0 }
+
+$wr = New-Object NovxRefit+RECT
+$cr = New-Object NovxRefit+RECT
+if (-not [NovxRefit]::GetWindowRect($hw, [ref]$wr)) { exit 0 }
+if (-not [NovxRefit]::GetClientRect($hw, [ref]$cr)) { exit 0 }
+
+$outerW = $wr.Right - $wr.Left
+$outerH = $wr.Bottom - $wr.Top
+$clientW = $cr.Right - $cr.Left
+$clientH = $cr.Bottom - $cr.Top
+if ($clientW -le 0 -or $clientH -le 0) { exit 0 }
+
+$ncW = $outerW - $clientW
+$ncH = $outerH - $clientH
+$cx = [int](($wr.Left + $wr.Right) / 2)
+$cy = [int](($wr.Top + $wr.Bottom) / 2)
+
+$mi = New-Object NovxRefit+MONITORINFO
+$mi.cbSize = [System.Runtime.InteropServices.Marshal]::SizeOf($mi)
+$mon = [NovxRefit]::MonitorFromWindow($hw, 2)
+if ($mon -eq [IntPtr]::Zero -or -not [NovxRefit]::GetMonitorInfo($mon, [ref]$mi)) { exit 0 }
+$work = $mi.rcWork
+$margin = ${String(VIDEO_MARGIN)}
+$maxW = [Math]::Max(220, ($work.Right - $work.Left) - (2 * $margin))
+$maxH = [Math]::Max(240, ($work.Bottom - $work.Top) - (2 * $margin))
+$ratio = ${String(ratio)}
+
+# Conserve l'aire approximative (via la plus grande dimension actuelle),
+# puis clamp dans le moniteur — évite le recenter sur l'écran de l'UI.
+$base = [Math]::Max($clientW, $clientH)
+if ($ratio -ge 1) {
+    $tw = [Math]::Min($maxW, $base)
+    $th = [Math]::Max(1, [int][Math]::Round($tw / $ratio))
+    if ($th -gt $maxH) {
+        $th = $maxH
+        $tw = [Math]::Max(1, [int][Math]::Round($th * $ratio))
+    }
+} else {
+    $th = [Math]::Min($maxH, $base)
+    $tw = [Math]::Max(1, [int][Math]::Round($th * $ratio))
+    if ($tw -gt $maxW) {
+        $tw = $maxW
+        $th = [Math]::Max(1, [int][Math]::Round($tw / $ratio))
+    }
+}
+$newOuterW = [Math]::Max(120, $tw + $ncW)
+$newOuterH = [Math]::Max(120, $th + $ncH)
+$nx = $cx - [int]($newOuterW / 2)
+$ny = $cy - [int]($newOuterH / 2)
+$nx = [Math]::Max($work.Left + $margin, [Math]::Min($nx, $work.Right - $margin - $newOuterW))
+$ny = [Math]::Max($work.Top + $margin, [Math]::Min($ny, $work.Bottom - $margin - $newOuterH))
+
+# 0x0044 = SWP_NOZORDER | SWP_NOACTIVATE
+[NovxRefit]::SetWindowPos($hw, [IntPtr]::Zero, $nx, $ny, $newOuterW, $newOuterH, 0x0044) | Out-Null
+`);
 }
 
 export function toggleVideoPinned(): void {

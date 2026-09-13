@@ -1,8 +1,9 @@
 import { spawn, execFile, type ChildProcess } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 import { EventEmitter } from 'node:events';
+import { buildGstEnv } from './gstEnv';
 import { shouldIgnoreLogLine, shouldIgnoreExpectedShutdownLine } from './logger';
+import { resolveUxPlayBinary } from './paths';
 import type { LogEntry, ReceiverStatus, StreamStats, UxPlayOptions, VideoCrop } from './types';
 
 const DEFAULT_OPTIONS: UxPlayOptions = {
@@ -102,20 +103,24 @@ export class UxPlayManager extends EventEmitter {
   }
 
   getBinaryPath(): string | null {
-    const candidates = [
-      join(__dirname, '..', '..', 'bin', 'uxplay.exe'),
-      join(process.resourcesPath || '', 'bin', 'uxplay.exe'),
-      join(dirname(process.execPath), 'bin', 'uxplay.exe'),
-    ];
-    for (const p of candidates) {
-      if (existsSync(p)) return p;
-    }
-    return null;
+    return resolveUxPlayBinary();
   }
 
   private getBinDir(): string | null {
     const bin = this.getBinaryPath();
     return bin ? dirname(bin) : null;
+  }
+
+  getBinDirectory(): string | null {
+    return this.getBinDir();
+  }
+
+  getProcessPid(): number | undefined {
+    return this.process?.pid ?? undefined;
+  }
+
+  log(text: string): void {
+    this.addLog(text);
   }
 
   private getVideoCropConfig(): VideoCrop {
@@ -160,6 +165,12 @@ export class UxPlayManager extends EventEmitter {
     );
     args.push('-vsync', 'no');
     args.push('-al', '0');
+    // DirectSound passe par le mixeur Windows (capturable en loopback REC)
+    // et ne crashe pas à l'arrêt iPhone, contrairement à wasapisink
+    // (gst_wasapi_sink_write / skipping segment).
+    if (this.options.audioEnabled) {
+      args.push('-as', 'directsoundsink');
+    }
 
     return args;
   }
@@ -196,25 +207,9 @@ export class UxPlayManager extends EventEmitter {
     const args = this.buildArgs();
     this.addLog(`Démarrage: ${bin} ${args.join(' ')}`);
 
-    const env: Record<string, string> = {
-      ...(process.env as Record<string, string>),
-      PATH: `${binDir};${process.env['PATH'] ?? ''}`,
-      GST_PLUGIN_PATH: join(binDir, 'gstreamer-1.0'),
-      GST_PLUGIN_SYSTEM_PATH: join(binDir, 'gstreamer-1.0'),
-      GST_REGISTRY: join(binDir, 'gst-registry.bin'),
-      GST_PLUGIN_SCANNER: '',
-      // Garantit le décodage matériel GPU (Direct3D11/DXVA) en remontant le rank
-      // des décodeurs d3d11 au-dessus des décodeurs logiciels (avdec_*), SANS
-      // retirer le fallback software si le GPU ne supporte pas le codec.
-      GST_PLUGIN_FEATURE_RANK: 'd3d11h264dec:max,d3d11h265dec:max',
-      // GST_CAPS:5 suffit à voir `width=(int)N, height=(int)M` (notre source de
-      // résolution). On ne met PLUS h264parse/videocrop/d3d11videosink à :5 : à
-      // 60fps ça générait un volume massif de logs par frame (CPU/I/O) et des
-      // dimensions parasites (textures/alignement) captées comme fausses
-      // résolutions. `*:2` garde les warnings/erreurs utiles.
-      GST_DEBUG: '*:2,GST_CAPS:5',
-      GST_DEBUG_NO_COLOR: '1',
-    };
+    // GST_CAPS:5: width=(int)N,height=(int)M for the resolution parser.
+    // Do NOT raise h264parse/videocrop/d3d11videosink to :5 (per-frame log flood).
+    const env = buildGstEnv(binDir, '*:2,GST_CAPS:5');
 
     try {
       this.process = spawn(bin, args, { cwd: binDir, env, windowsHide: false });
@@ -532,6 +527,9 @@ export class UxPlayManager extends EventEmitter {
 
       if (lower.includes('error') && (lower.includes('gst') || lower.includes('pipeline'))) {
         if (this.stoppingIntent || Date.now() < this.suppressErrorsUntil) {
+          continue;
+        }
+        if (shouldIgnoreExpectedShutdownLine(line) || shouldIgnoreLogLine(line)) {
           continue;
         }
         this.emit('gst-error', line.trim());

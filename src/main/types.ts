@@ -94,3 +94,14 @@ export interface StreamStats {
   latencyMs: number | null;
   packetLoss: number | null;
 }
+
+/** Chromium display-capture grant used by REC (see setDisplayMediaRequestHandler). */
+export type RecordingCaptureMode = 'window' | 'screen' | 'window-silent' | 'loopback';
+
+export type NativeRecordingStartResult = { ok: true } | { ok: false; error: string };
+
+export type NativeRecordingStopResult = {
+  path: string | null;
+  hasAudio: boolean;
+  error?: string;
+};

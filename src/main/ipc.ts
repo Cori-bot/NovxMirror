@@ -12,7 +12,7 @@ import {
   getVideoCropConfigForResolution,
   resetVideoWindow,
   takeScreenshot,
-  syncVisibleGStreamer,
+  refitVideoWindowInPlace,
   startGStreamerWatcher,
   normalizeVideoAspect,
   persistVideoAspect,
@@ -21,7 +21,9 @@ import { emitThemeAndLocale, quitApp } from './windows';
 import { updateTrayMenu } from './tray';
 import { cleanupTempFiles } from './paths';
 import { notifyDeviceConnected, notifyDeviceDisconnected } from './notifications';
-import type { Settings, SettingsPayload } from './types';
+import type { RecordingCaptureMode, Settings, SettingsPayload } from './types';
+import { startNativeRecording, stopNativeRecording } from './gstRecording';
+import { createNovxShortcuts } from './shortcuts';
 
 // On annonce 4K à UxPlay pour ne jamais brider l'iPhone par notre handshake.
 // L'iPhone négocie ce qu'il sait produire (typiquement 1920x1080); ce plafond
@@ -82,19 +84,30 @@ export function bindUxPlayEvents(): void {
     const previousAspect = state.streamAspect;
     const newLandscape = cropW > cropH;
     state.streamAspect = normalizeVideoAspect({ width: cropW, height: cropH });
-    const previousRatio = previousAspect ? previousAspect.width / previousAspect.height : null;
-    const nextRatio = state.streamAspect.width / state.streamAspect.height;
-    const shouldResyncForAspect =
-      previousRatio === null || Math.abs(previousRatio - nextRatio) > 0.0005;
     persistVideoAspect(state.gstPid, state.streamAspect);
-    if (newLandscape !== state.streamIsLandscape || shouldResyncForAspect) {
-      state.streamIsLandscape = newLandscape;
-      if (state.streamResizeTimer) clearTimeout(state.streamResizeTimer);
-      state.streamResizeTimer = setTimeout(() => {
-        state.streamResizeTimer = null;
-        if (state.gstPid) syncVisibleGStreamer(state.gstPid);
-      }, 400);
-    }
+
+    // TikTok / feeds changent le ratio : on refit la HWND au ratio du flux
+    // (pas de bandes noires) SANS changer de moniteur. Seul un écart >1.5%
+    // ou un flip portrait ↔ paysage déclenche le resize.
+    const previousRatio =
+      previousAspect !== null ? previousAspect.width / previousAspect.height : 0;
+    const newRatio = cropW / cropH;
+    const orientationFlipped =
+      previousAspect !== null && newLandscape !== state.streamIsLandscape;
+    const ratioChanged =
+      previousAspect !== null &&
+      previousRatio > 0 &&
+      Math.abs(newRatio - previousRatio) / previousRatio > 0.015;
+    state.streamIsLandscape = newLandscape;
+
+    if (!orientationFlipped && !ratioChanged) return;
+
+    if (state.streamResizeTimer) clearTimeout(state.streamResizeTimer);
+    const pid = state.gstPid;
+    state.streamResizeTimer = setTimeout(() => {
+      state.streamResizeTimer = null;
+      if (state.gstPid === pid) refitVideoWindowInPlace(pid);
+    }, 250);
   });
 
   let lastConnectedDevice: string | null = null;
@@ -244,6 +257,8 @@ export function registerIpcHandlers(): void {
     return result.filePaths[0];
   });
 
+  ipcMain.handle('create-shortcuts', () => createNovxShortcuts());
+
   ipcMain.handle('get-logs', () => uxplay.getLogs());
   ipcMain.handle('get-stream-stats', () => uxplay.getStats());
 
@@ -293,12 +308,23 @@ export function registerIpcHandlers(): void {
   ipcMain.on('tools-reset', () => resetVideoWindow());
   ipcMain.on('tools-screenshot', () => takeScreenshot(getScreenshotDirectory()));
 
-  // Enregistrement d'écran : quand le renderer appelle getDisplayMedia(), on
-  // route automatiquement la capture vers la FENÊTRE vidéo native (titrée
-  // "NovX Mirror[ - device]"), sans afficher de sélecteur. Fallback écran entier
-  // si la fenêtre n'est pas trouvée. Sur Windows 11 (Windows Graphics Capture),
-  // la capture de la fenêtre d3d11 fonctionne. NB: les contenus protégés (DRM,
-  // Snapchat/Insta) restent noirs — la protection est appliquée côté iOS.
+  // REC is a GStreamer side-mux (see gstRecording.ts). Chromium getDisplayMedia
+  // is unused by the REC button; the handler stays for any leftover renderer calls.
+  const CAPTURE_MODES = new Set<RecordingCaptureMode>([
+    'window',
+    'screen',
+    'window-silent',
+    'loopback',
+  ]);
+  let recordingCaptureMode: RecordingCaptureMode = 'window';
+  ipcMain.handle('recording-set-capture-mode', (_, mode: unknown) => {
+    if (typeof mode === 'string' && CAPTURE_MODES.has(mode as RecordingCaptureMode)) {
+      recordingCaptureMode = mode as RecordingCaptureMode;
+    }
+  });
+  ipcMain.handle('recording-start', () => startNativeRecording());
+  ipcMain.handle('recording-stop', () => stopNativeRecording());
+
   session.defaultSession.setDisplayMediaRequestHandler(
     (request, callback) => {
       desktopCapturer
@@ -309,36 +335,54 @@ export function registerIpcHandlers(): void {
             sources.find((s) => s.name === title) ??
             sources.find((s) => s.name.includes('NovX Mirror'));
           const screenSrc = sources.find((s) => s.id.startsWith('screen'));
-          const chosen = windowSrc ?? screenSrc ?? sources[0];
+          const preferScreen =
+            recordingCaptureMode === 'screen' || recordingCaptureMode === 'loopback';
+          const chosen = preferScreen
+            ? (screenSrc ?? windowSrc ?? sources[0])
+            : (windowSrc ?? screenSrc ?? sources[0]);
           if (!chosen) {
             callback({});
             return;
           }
-          // Audio loopback UNIQUEMENT si le renderer l'a demandé : ainsi le
-          // retry « vidéo seule » (audio:false) ne tente pas un loopback qui
-          // échoue ("Could not start audio source").
-          callback(request.audioRequested ? { video: chosen, audio: 'loopback' } : { video: chosen });
+          const wantAudio =
+            recordingCaptureMode === 'loopback' ||
+            (request.audioRequested && recordingCaptureMode !== 'window-silent');
+          callback(wantAudio ? { video: chosen, audio: 'loopback' } : { video: chosen });
         })
         .catch(() => callback({}));
     },
     { useSystemPicker: false },
   );
 
-  ipcMain.handle('save-recording', (_, data: unknown): string | null => {
-    if (!(data instanceof Uint8Array)) return null;
-    const dir = getScreenshotDirectory();
-    const stamp = new Date()
-      .toISOString()
-      .replace(/[:.]/g, '-')
-      .replace('T', '_')
-      .slice(0, 19);
-    const file = join(dir, `NOVX-recording-${stamp}.webm`);
-    try {
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(file, Buffer.from(data));
-      return file;
-    } catch {
-      return null;
-    }
-  });
+  ipcMain.handle('save-recording', (_, payload: unknown): string | null => {
+      // Compat : anciens appels passaient un Uint8Array nu ; nouveau format
+      // { data, extension } pour sauver en .mp4 (H.264+AAC) ou .webm.
+      let data: Uint8Array | null = null;
+      let extension: 'mp4' | 'webm' = 'mp4';
+      if (payload instanceof Uint8Array) {
+        data = payload;
+        extension = 'webm';
+      } else if (payload && typeof payload === 'object') {
+        const p = payload as { data?: unknown; extension?: unknown };
+        if (p.data instanceof Uint8Array) data = p.data;
+        if (p.extension === 'mp4' || p.extension === 'webm') extension = p.extension;
+      }
+      if (!data) return null;
+
+      const dir = getScreenshotDirectory();
+      const stamp = new Date()
+        .toISOString()
+        .replace(/[:.]/g, '-')
+        .replace('T', '_')
+        .slice(0, 19);
+      const file = join(dir, `NOVX-recording-${stamp}.${extension}`);
+      try {
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(file, Buffer.from(data));
+        return file;
+      } catch {
+        return null;
+      }
+    },
+  );
 }

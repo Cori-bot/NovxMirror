@@ -30,6 +30,7 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
+    publicDir: resolve(__dirname, 'src/renderer/public'),
     plugins: [react()],
     resolve: {
       alias: {

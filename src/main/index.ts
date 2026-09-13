@@ -7,8 +7,35 @@ import { uxplay } from './uxplay-manager';
 import { createMainWindow } from './windows';
 import { createTray, updateTrayMenu } from './tray';
 import { bindUxPlayEvents, registerIpcHandlers, startUxPlay } from './ipc';
+import { abortNativeRecording } from './gstRecording';
+import { novxAppUserModelId } from './win32Icon';
+import { destroyVideoHost } from './videoHost';
 
-app.setAppUserModelId('com.novx.mirror');
+// Product name for OS surfaces; package.json "name" is the npm id (novx-mirror).
+app.setName('NOVX Mirror');
+
+// Packaged AUMID must match electron-builder appId / NSIS shortcuts.
+// Dev uses a distinct ID so `pnpm dev` (electron.exe + atom icon) does not
+// poison the Windows 11 taskbar cache for the installed app.
+// Use com.novx.mirror.app — legacy com.novx.mirror was poisoned by Start Menu Electron.lnk.
+app.setAppUserModelId(novxAppUserModelId(app.isPackaged));
+
+// Une seule instance : un 2e lancement (raccourci / menu Demarrer) focus la fenetre existante.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const win = state.mainWindow;
+    if (win && !win.isDestroyed()) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+    } else {
+      createMainWindow();
+    }
+  });
+}
 
 // Switches GPU/perf — DOIVENT être posés avant app.whenReady().
 // On force le backend ANGLE Direct3D11 pour rester cohérent avec le pipeline
@@ -20,6 +47,8 @@ app.commandLine.appendSwitch('use-angle', 'd3d11');
 app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling,MediaSessionService');
 
 void app.whenReady().then(() => {
+  if (!gotSingleInstanceLock) return;
+
   cleanupTempFiles();
   const startupSettings = loadSettings();
   state.currentTheme = startupSettings.theme || DEFAULT_SETTINGS.theme;
@@ -50,6 +79,8 @@ void app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   state.isQuitting = true;
+  abortNativeRecording();
+  destroyVideoHost();
   uxplay.stop();
 });
 

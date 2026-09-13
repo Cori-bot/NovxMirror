@@ -3,6 +3,9 @@ import type {
   AppErrorPayload,
   AppSuccessPayload,
   LogEntry,
+  NativeRecordingStartResult,
+  NativeRecordingStopResult,
+  RecordingCaptureMode,
   Settings,
   SettingsPayload,
   StatusUpdate,
@@ -32,6 +35,13 @@ const api = {
     ipcRenderer.invoke('apply-settings', settings) as Promise<boolean>,
   chooseScreenshotDirectory: (currentPath: string | null): Promise<string | null> =>
     ipcRenderer.invoke('choose-screenshot-directory', currentPath) as Promise<string | null>,
+  createShortcuts: (): Promise<{
+    ok: boolean;
+    desktop: boolean;
+    startMenu: boolean;
+    desktopPath: string | null;
+    startMenuPath: string | null;
+  }> => ipcRenderer.invoke('create-shortcuts'),
 
   getLogs: (): Promise<LogEntry[]> => ipcRenderer.invoke('get-logs') as Promise<LogEntry[]>,
   getStreamStats: (): Promise<StreamStats> =>
@@ -77,8 +87,14 @@ const api = {
   reset: (): void => ipcRenderer.send('tools-reset'),
   screenshot: (): void => ipcRenderer.send('tools-screenshot'),
 
-  saveRecording: (data: Uint8Array): Promise<string | null> =>
-    ipcRenderer.invoke('save-recording', data) as Promise<string | null>,
+  saveRecording: (data: Uint8Array, extension: 'mp4' | 'webm' = 'mp4'): Promise<string | null> =>
+    ipcRenderer.invoke('save-recording', { data, extension }) as Promise<string | null>,
+  setRecordingCaptureMode: (mode: RecordingCaptureMode): Promise<void> =>
+    ipcRenderer.invoke('recording-set-capture-mode', mode) as Promise<void>,
+  startRecording: (): Promise<NativeRecordingStartResult> =>
+    ipcRenderer.invoke('recording-start') as Promise<NativeRecordingStartResult>,
+  stopRecording: (): Promise<NativeRecordingStopResult> =>
+    ipcRenderer.invoke('recording-stop') as Promise<NativeRecordingStopResult>,
 } as const;
 
 export type AirmirrorApi = typeof api;

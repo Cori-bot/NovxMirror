@@ -10,7 +10,9 @@
     "build": "electron-vite build && electron-builder --win --x64",
     "lint": "eslint . --fix",
     "typecheck": "tsc -b --noEmit",
-    "check": "npm run lint && npm run typecheck"
+    "check": "pnpm lint && pnpm typecheck",
+    "icons": "node scripts/generate-icons.mjs",
+    "applog": "node scripts/app-loopback/build.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -31,13 +33,17 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
     "globals": "^15.12.0",
+    "png-to-ico": "^3.0.2",
     "postcss": "^8.4.49",
+    "sharp": "^0.35.4",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",
     "vite": "^5.4.11"
   },
   "dependencies": {
+    "ffmpeg-static": "^5.3.0",
     "geist": "^1.7.2",
+    "koffi": "^3.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zustand": "^5.0.14"
@@ -50,12 +56,18 @@
         "repo": "NovxMirror"
       }
     ],
-    "appId": "com.novx.mirror",
+    "appId": "com.novx.mirror.app",
     "productName": "NOVX Mirror",
+    "executableName": "NOVX Mirror",
     "copyright": "NOVX",
+    "icon": "assets/icon.ico",
     "directories": {
       "output": "dist"
     },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
     "win": {
       "target": [
         {
@@ -65,24 +77,30 @@
           ]
         }
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": true
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": true,
       "allowToChangeInstallationDirectory": false,
+      "include": "build/installer.nsh",
+      "guid": "98db1f1b-a8cd-5e0c-ae05-ab839d56f0c7",
       "installerIcon": "assets/icon.ico",
       "uninstallerIcon": "assets/icon.ico",
       "installerHeaderIcon": "assets/icon.ico",
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "NOVX Mirror"
+      "shortcutName": "NOVX Mirror",
+      "artifactName": "Novx-setup.${ext}"
     },
     "extraResources": [
       {
         "from": "bin",
         "to": "bin",
         "filter": [
-          "**/*"
+          "**/*",
+          "!gst-registry.bin"
         ]
       },
       {
@@ -90,14 +108,21 @@
         "to": "icon.ico"
       },
       {
-        "from": "assets/icon.ico",
+        "from": "assets/tray-icon.ico",
         "to": "tray-icon.ico"
+      },
+      {
+        "from": "assets/novx-logo-256-removebg.png",
+        "to": "novx-logo-256-removebg.png"
+      },
+      {
+        "from": "assets/novx-logo-32-removebg.png",
+        "to": "novx-logo-32-removebg.png"
       }
     ],
-    "files": [
-      "out/**/*",
-      "assets/**/*",
-      "package.json"
+    "asarUnpack": [
+      "node_modules/koffi/**/*",
+      "node_modules/ffmpeg-static/**/*"
     ]
   }
 }

@@ -71,6 +71,16 @@ export function SettingsPage() {
     updateApp({ screenshotDir: null });
   };
 
+  const onCreateShortcuts = () => {
+    void window.airmirror.createShortcuts().then((result) => {
+      showToast(
+        result.ok
+          ? t('settings.shortcutsCreated')
+          : t('settings.shortcutsFailed'),
+      );
+    });
+  };
+
   return (
     <div
       className="panel active"
@@ -200,6 +210,16 @@ export function SettingsPage() {
               </button>
               <button type="button" className="link-btn" onClick={onResetScreenshotDir}>
                 {t('settings.screenshotFolderDefault')}
+              </button>
+            </div>
+          </div>
+
+          <div className="setting-group">
+            <label className="setting-label">{t('settings.shortcuts')}</label>
+            <span className="hint">{t('settings.shortcutsHint')}</span>
+            <div className="setting-actions">
+              <button type="button" className="link-btn" onClick={onCreateShortcuts}>
+                {t('settings.shortcutsCreate')}
               </button>
             </div>
           </div>

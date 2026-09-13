@@ -2,10 +2,16 @@ import { app, BrowserWindow } from 'electron';
 import { join } from 'node:path';
 import { state } from './state';
 import { loadSettings } from './settings';
-import { getMainWindowIcon } from './paths';
+import { getWindowIconPath } from './paths';
+import { applyBrowserWindowIcon } from './win32Icon';
+
+function applyMainWindowIcon(win: BrowserWindow): void {
+  applyBrowserWindowIcon(win, getWindowIconPath());
+}
 
 export function createMainWindow(): BrowserWindow {
   const settings = loadSettings();
+  const iconPath = getWindowIconPath();
 
   const win = new BrowserWindow({
     width: 960,
@@ -17,16 +23,14 @@ export function createMainWindow(): BrowserWindow {
     frame: false,
     transparent: false,
     backgroundColor: '#0d1117',
-    show: !settings.startMinimized,
-    icon: getMainWindowIcon(),
+    // Apply setAppDetails before first Show so Win11 does not pin the Electron atom.
+    show: false,
+    icon: iconPath,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      // Perf : aucun champ texte significatif → pas de dictionnaire en RAM ni de
-      // téléchargement de dico. Cache bytecode V8 sans attendre le seuil de
-      // chaleur pour accélérer les démarrages suivants.
       spellcheck: false,
       v8CacheOptions: 'bypassHeatCheck',
     },
@@ -34,11 +38,20 @@ export function createMainWindow(): BrowserWindow {
 
   state.mainWindow = win;
 
+  // Official Electron taskbar API (must run before show).
+  applyMainWindowIcon(win);
+
+  win.on('ready-to-show', () => applyMainWindowIcon(win));
+  win.on('show', () => applyMainWindowIcon(win));
+  win.webContents.on('did-finish-load', () => applyMainWindowIcon(win));
+
   if (process.env['ELECTRON_RENDERER_URL']) {
     void win.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
     void win.loadFile(join(__dirname, '../renderer/index.html'));
   }
+
+  if (!settings.startMinimized) win.show();
 
   win.on('close', (e) => {
     const s = loadSettings();

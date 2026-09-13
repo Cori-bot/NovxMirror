@@ -33,6 +33,17 @@ export function shouldIgnoreLogLine(line: string): boolean {
     return true;
   }
 
+  if (isWasapiShutdownNoise(lower)) return true;
+
+  return false;
+}
+
+function isWasapiShutdownNoise(lower: string): boolean {
+  if (lower.includes('gst_wasapi_sink_write')) return true;
+  if (lower.includes('error writing data') && lower.includes('wasapi')) return true;
+  if (lower.includes('audioringbuffer_thread_func') && lower.includes('skipping segment')) {
+    return true;
+  }
   return false;
 }
 
@@ -45,6 +56,7 @@ export function shouldIgnoreExpectedShutdownLine(line: string): boolean {
   if (lower.includes('output window was closed')) return true;
   if (lower.includes('connection closed on socket')) return true;
   if (lower.includes('raop_rtp_mirror->running is no longer true')) return true;
+  if (isWasapiShutdownNoise(lower)) return true;
 
   return false;
 }
