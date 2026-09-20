@@ -2,12 +2,15 @@
 - Chat with the user in French.
 - Iterate and verify in `pnpm dev` before rebuilding the NSIS installer.
 - Never leave the default Electron icon: every window (stats UI and AirPlay mirror) must show the NOVX logo in both the taskbar and the title bar. The in-app titlebar SVG is not the taskbar icon. Win11 taskbar uses Electron `BrowserWindow.setAppDetails({ appId, appIconPath, relaunchCommand, relaunchDisplayName })` before first show — not `setIcon` / `WM_SETICON` alone. Packaged AUMID is `com.novx.mirror.app` (matches `build.appId`); dev is `com.novx.mirror.app.dev`. Legacy `com.novx.mirror` was poisoned by Start Menu `Electron.lnk` from pinning `pnpm dev` — do not reuse it.
+- Prefer a reliable desktop shortcut; Win11 Start Menu may hide the installed entry. Installer should always create the desktop shortcut, and Settings should offer creating Desktop + Start shortcuts.
 - Recorded files must contain audible audio matching the live AirPlay mix heard on the PC, not a silent or video-only MP4.
 - Keep the mirroring window on the same monitor. The UxPlay HWND lives in another process so GWLP_WNDPROC cannot lock ratio; the 16ms watcher calls `EnforceClientAspect` via SetWindowPos instead. Client size matches the AirPlay aspect (no 6px overscan shrink). Maximize → largest fit in the work area.
 
 ## Learned Workspace Facts
 - NOVX Mirror is a Windows Electron AirPlay receiver for iPhone screen mirroring, built on UxPlay and GStreamer `d3d11videosink`.
 - There are two distinct windows: the Electron stats/control BrowserWindow and the native UxPlay/GStreamer video HWND; icons and positioning must be applied separately.
+- Single-instance via `app.requestSingleInstanceLock()`; a second launch focuses the existing window instead of opening another.
+- Desktop/Start shortcuts: NSIS `createDesktopShortcut: "always"`; Settings creates them with `shell.writeShortcutLink` (`src/main/shortcuts.ts`). Installer artifact is `Novx-setup.exe`.
 - Recordings export as MP4 H.264+AAC (not WebM, MKV, or MOV) into Pictures/NovX Mirror. REC video is `PrintWindow(PW_RENDERFULLCONTENT)` of the UxPlay HWND (follows moves, ignores windows on top) piped as raw BGRA into `ffmpeg-static` libx264 — not a desktop `gdigrab` crop. Audio is Windows Application Loopback (`VAD\\Process_Loopback` via `bin/novx-applog.exe`) of the UxPlay process tree, with live `1/ISimpleAudioVolume` gain (cap 50×) so the mixer slider can stay low. Never `ReleaseComObject` that RCW (silent MP4). Rebuild with `pnpm applog`.
 - UxPlay `-mp4` records H.264+AAC natively while the live sink stays up, but it is launch-only (whole AirPlay connection, `fn.n.H264.AAC.mp4`) and cannot start/stop from the REC button without restarting UxPlay. Chromium split `getDisplayMedia` produced video-only files. Keep `directsoundsink` (shared mixer) so WASAPI loopback hears the AirPlay mix.
 - GStreamer should letterbox inside the HWND (`force-aspect-ratio=true`) only as a 1px safety net; the window itself is kept at the stream aspect so there are no side black bars. Portrait↔landscape and material ratio changes call `refitVideoWindowInPlace` on the current monitor.
