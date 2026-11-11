@@ -63,5 +63,16 @@
       ".github/workflows/release.yml",
       ".agents/update.json"
     ]
+  },
+  {
+    "date": "2026-11-12T00:10:00+01:00",
+    "actions": [
+      "Mise à jour des actions GitHub vers leurs versions natives Node 24 pour éliminer l'avertissement de dépréciation Node 20 : passage à actions/checkout@v5, actions/setup-node@v5 et pnpm/action-setup@v4.",
+      "Création et push du tag propre v0.1.0 pour déclencher une publication unique sans warnings."
+    ],
+    "changes": [
+      ".github/workflows/release.yml",
+      ".agents/update.json"
+    ]
   }
 ]
