@@ -24,5 +24,17 @@
       "package.json",
       "pnpm-lock.yaml"
     ]
+  },
+  {
+    "date": "2026-11-11T22:39:00+01:00",
+    "actions": [
+      "Passage de la version de l'application à 0.1.0 dans package.json pour la première release officielle v0.1.",
+      "Validation intégrale : build electron-vite réussi, pnpm check (lint + typecheck) à 0 erreur, et 18/18 tests Playwright validés sur toutes les résolutions d'écran.",
+      "Création du tag Git v0.1.0 et push vers origin main et origin v0.1.0 pour déclencher le pipeline de build et publication automatique de la release GitHub (Novx-setup.exe)."
+    ],
+    "changes": [
+      "package.json",
+      ".agents/update.json"
+    ]
   }
 ]
