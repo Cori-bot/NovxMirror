@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   release:
@@ -28,9 +31,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Validate code (lint & typecheck)
+        run: pnpm check
+
       - name: Build and Publish
         # electron-vite build génère les fichiers dans out/
-        # electron-builder package le tout et publie sur GitHub
+        # electron-builder package le tout et publie sur GitHub Releases
         run: pnpm exec electron-vite build && pnpm exec electron-builder --win --x64 --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

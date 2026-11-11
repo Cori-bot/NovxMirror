@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useAppStore } from '../store/app';
 import { useT, useTranslations } from '../i18n/useT';
 
@@ -6,6 +7,17 @@ export function PageOverlay() {
   const tr = useTranslations();
   const pageKey = useAppStore((s) => s.pageOverlay);
   const setPageOverlay = useAppStore((s) => s.setPageOverlay);
+
+  useEffect(() => {
+    if (!pageKey) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPageOverlay(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pageKey, setPageOverlay]);
 
   if (!pageKey) return null;
   const page = tr.pages[pageKey];

@@ -11,6 +11,18 @@ export function BonjourModal() {
   const [phase, setPhase] = useState<'idle' | 'success' | 'failed'>('idle');
   const [countdown, setCountdown] = useState(3);
 
+  // Fermeture par la touche Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setBonjourMissing(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, setBonjourMissing]);
+
   // Compte à rebours avant redémarrage, piloté par un effet NETTOYABLE : si la
   // modale se ferme/démonte pendant le décompte, l'intervalle est clearé et
   // restartApp() n'est PAS appelé deux fois (ancien bug : setTimeout récursifs

@@ -1,4 +1,4 @@
-import { app, shell } from 'electron';
+import { app, shell, type ShortcutDetails } from 'electron';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getWindowIconPath } from './paths';
@@ -14,7 +14,7 @@ export type CreateShortcutsResult = {
   startMenuPath: string | null;
 };
 
-function shortcutDetails(): Electron.ShortcutDetails {
+function shortcutDetails(): ShortcutDetails {
   const target = process.execPath;
   const icon = getWindowIconPath();
   return {

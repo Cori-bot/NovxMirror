@@ -1,0 +1,28 @@
+[
+  {
+    "date": "2026-11-11T22:05:00+01:00",
+    "actions": [
+      "Correction CI/CD GitHub Actions (.github/workflows/release.yml) : ajout du déclenchement sur tags Git 'v*' et workflow_dispatch, ajout du contrôle qualité pnpm check (lint + typecheck) avant build et publication automatique.",
+      "Correction de l'erreur de lint no-undef dans src/main/shortcuts.ts (import explicite de ShortcutDetails depuis electron).",
+      "Sécurisation et blocage total du zoom dans Electron (src/main/windows.ts avec setVisualZoomLevelLimits(1,1), setZoomFactor(1) et neutralisation des raccourcis Ctrl +/-/0/wheel) et dans l'interface web (index.html avec viewport user-scalable=no et globals.css avec touch-action: pan-x pan-y).",
+      "Définition d'une taille minimale sécurisée pour l'application (minWidth: 720, minHeight: 560) dans src/main/windows.ts afin d'éviter tout écrasement ou illisibilité de l'UI, tout en garantissant un redimensionnement et agrandissement sans aucune limite supérieure.",
+      "Améliorations UX et accessibilité : fermeture des modales et overlays (BonjourModal, PageOverlay, Select) via la touche Escape, focus-visible soigné pour la navigation clavier.",
+      "Mise en place d'un banc de test automatisé Playwright (tests/ui-responsive.spec.ts et playwright.config.ts) validant 18 scénarios multi-tailles (720x560 minimum, 960x680 défaut, 1280x720 720p, 1920x1080 1080p FHD, 2560x1440 2K, 1080x1920 vertical) avec tests de navigation, absence de débordement horizontal, ouverture/fermeture des menus et modales."
+    ],
+    "changes": [
+      ".github/workflows/release.yml",
+      "src/main/shortcuts.ts",
+      "src/main/windows.ts",
+      "src/renderer/index.html",
+      "src/renderer/src/styles/globals.css",
+      "src/renderer/src/components/BonjourModal.tsx",
+      "src/renderer/src/components/PageOverlay.tsx",
+      "eslint.config.mjs",
+      "playwright.config.ts",
+      "tests/ui-responsive.spec.ts",
+      ".gitignore",
+      "package.json",
+      "pnpm-lock.yaml"
+    ]
+  }
+]

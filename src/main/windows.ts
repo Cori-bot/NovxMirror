@@ -16,7 +16,7 @@ export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 960,
     height: 680,
-    minWidth: 640,
+    minWidth: 720,
     minHeight: 560,
     resizable: true,
     maximizable: true,
@@ -37,6 +37,27 @@ export function createMainWindow(): BrowserWindow {
   });
 
   state.mainWindow = win;
+
+  // Interdire tout zoom dans la fenêtre (raccourcis clavier Ctrl+Plus/Minus/Zero/Wheel).
+  win.webContents.on('did-finish-load', () => {
+    applyMainWindowIcon(win);
+    void win.webContents.setVisualZoomLevelLimits(1, 1);
+    win.webContents.setZoomFactor(1);
+  });
+
+  win.webContents.on('before-input-event', (event, input) => {
+    if (
+      input.control &&
+      (input.key === '+' ||
+        input.key === '-' ||
+        input.key === '=' ||
+        input.key === '0' ||
+        input.key === 'Add' ||
+        input.key === 'Subtract')
+    ) {
+      event.preventDefault();
+    }
+  });
 
   // Official Electron taskbar API (must run before show).
   applyMainWindowIcon(win);
