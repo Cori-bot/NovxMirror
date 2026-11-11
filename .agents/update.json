@@ -50,5 +50,18 @@
       "README.md",
       ".agents/update.json"
     ]
+  },
+  {
+    "date": "2026-11-11T23:28:00+01:00",
+    "actions": [
+      "Alignement de la configuration de publication GitHub Releases sur celle de SwitchMaster : 'releaseType: release' et 'private: false' dans package.json (pour publier directement en release publique et non en Draft brouillon).",
+      "Nettoyage du déclencheur CI dans release.yml : déclenchement uniquement sur les tags Git 'v*' (et workflow_dispatch manuel), suppression du déclencheur 'push branches: main' pour éviter les doubles exécutions et releases en doublon.",
+      "Mise à jour du tag Git v0.1.0."
+    ],
+    "changes": [
+      "package.json",
+      ".github/workflows/release.yml",
+      ".agents/update.json"
+    ]
   }
 ]
