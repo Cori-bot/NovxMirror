@@ -1,4 +1,4 @@
-name: Build and Release
+name: 🚀 Release
 
 on:
   push:
@@ -6,35 +6,49 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   release:
+    name: 📦 Build & Release
     runs-on: windows-latest
-    permissions:
-      contents: write
 
     steps:
-      - name: Checkout
+      - name: 📥 Checkout repository
         uses: actions/checkout@v5
 
-      - name: Install pnpm
+      - name: 📦 Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
 
-      - name: Setup Node
+      - name: 🟢 Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: 22
 
-      - name: Install dependencies
+      - name: 📥 Install dependencies
         run: pnpm install
 
-      - name: Validate code (lint & typecheck)
+      - name: 🧪 Validate code (lint & typecheck)
         run: pnpm check
 
-      - name: Build and Publish
-        # electron-vite build génère les fichiers dans out/
-        # electron-builder package le tout et publie sur GitHub Releases
-        run: pnpm exec electron-vite build && pnpm exec electron-builder --win --x64 --publish always
+      - name: 🏗️ Build Application
+        # electron-builder avec --publish never pour générer l'installateur sans appel API direct
+        run: pnpm exec electron-vite build && pnpm exec electron-builder --win --x64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🎉 Create GitHub Release
+        # Même approche éprouvée que SwitchMaster : softprops/action-gh-release publie 1 seule release propre pour le tag
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Novx-setup.exe
+            dist/latest.yml
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

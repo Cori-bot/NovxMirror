@@ -74,5 +74,17 @@
       ".github/workflows/release.yml",
       ".agents/update.json"
     ]
+  },
+  {
+    "date": "2026-11-12T00:50:00+01:00",
+    "actions": [
+      "Résolution de la cause racine des releases en double (différence identifiée avec SwitchMaster) : passage à l'action officielle softprops/action-gh-release@v2 au lieu d'electron-builder --publish always.",
+      "Mise à jour de .github/workflows/release.yml : compilation avec electron-builder --publish never pour générer l'installateur localement sans appel API concurrent, puis création unifiée et idempotente de la release GitHub via softprops/action-gh-release@v2 avec generate_release_notes: true.",
+      "Suppression du tag local obsolète et recréation du tag v0.1.0 pour garantir une release unique et propre."
+    ],
+    "changes": [
+      ".github/workflows/release.yml",
+      ".agents/update.json"
+    ]
   }
 ]
