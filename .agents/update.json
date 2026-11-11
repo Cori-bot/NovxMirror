@@ -36,5 +36,19 @@
       "package.json",
       ".agents/update.json"
     ]
+  },
+  {
+    "date": "2026-11-11T23:10:00+01:00",
+    "actions": [
+      "Résolution de l'erreur CI/CD GitHub Actions 'ERROR packages field missing or empty' lors du pnpm install : ajout de 'packages: - \".\"' dans pnpm-workspace.yaml pour déclarer explicitement le workspace sous pnpm v9.",
+      "Mise à niveau de la version de Node.js dans release.yml à Node 22 (pour résoudre l'avertissement de dépréciation de Node 20 sur les runners Windows Server 2025).",
+      "Refonte complète du README.md en Français professionnel : badges dynamiques, guide d'installation claire, architecture D3D11/UxPlay/WASAPI, commandes de développement et détails sur les tests multi-tailles Playwright."
+    ],
+    "changes": [
+      "pnpm-workspace.yaml",
+      ".github/workflows/release.yml",
+      "README.md",
+      ".agents/update.json"
+    ]
   }
 ]

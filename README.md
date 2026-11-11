@@ -1,254 +1,132 @@
 ﻿# NOVX Mirror
 
 <div align="center">
-  <img src="assets/novx-logo-512.png" alt="NOVX Mirror" width="120" />
+  <img src="assets/novx-logo-512.png" alt="NOVX Mirror" width="128" />
   
-  **AirPlay Receiver for Windows**
-  
-  Mirror your iPhone or iPad screen on Windows with a powerful, native desktop experience.
-  
-  [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-  [![Windows](https://img.shields.io/badge/platform-Windows-brightgreen.svg)](https://github.com/Cori-bot/NovxMirror/releases)
-  [![GitHub release](https://img.shields.io/github/v/release/Corridor/NovxMirror)](https://github.com/Cori-bot/NovxMirror/releases)
+  ### Récepteur AirPlay Haute Performance pour Windows
+
+  Diffusez et enregistrez l'écran de votre iPhone ou iPad sur Windows en toute fluidité avec une expérience bureau native optimisée.
+
+  [![Licence](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+  [![Plateforme](https://img.shields.io/badge/plateforme-Windows%2011%20%7C%2010-0078D6.svg?logo=windows)](https://github.com/Cori-bot/NovxMirror/releases)
+  [![Release](https://img.shields.io/github/v/release/Cori-bot/NovxMirror?color=brightgreen)](https://github.com/Cori-bot/NovxMirror/releases)
+  [![Build & Release CI](https://github.com/Cori-bot/NovxMirror/actions/workflows/release.yml/badge.svg)](https://github.com/Cori-bot/NovxMirror/actions/workflows/release.yml)
 </div>
 
 ---
 
-## ✨ Features
+## 🌟 Points Forts
 
-- 📱 **Full AirPlay Support** — Receive screen mirroring from iPhone and iPad devices
-- 🎨 **Custom UI** — Beautiful Electron interface with light, dark, and midnight themes
-- 🌍 **Multi-Language** — English, French, and German localization
-- ⚙️ **Fine-Tuned Settings** — Configure receiver name, FPS, resolution, audio, and PIN protection
-- 🎥 **Native Video Window** — Dedicated external window with screenshot and reset controls
-- 📊 **Smart Logging** — Built-in log viewer with filtering for UxPlay and GStreamer noise
-- 💾 **Local Storage** — All settings persist locally on your machine
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-Before getting started, make sure you have:
-- **Windows 10 or later**
-- **Apple Bonjour** installed and running ([Download](https://support.apple.com/kb/DL999))
-- **UxPlay and GStreamer** bundled in `bin/` (included in the repo)
-
-### Installation & Development
-
-```bash
-# Clone and install dependencies
-git clone https://github.com/Cori-bot/NovxMirror.git
-cd NovxMirror
-pnpm install
-
-# Start development server (hot reload enabled)
-pnpm dev
-```
-
-For real device testing, ensure your Windows firewall allows `uxplay.exe`:
-- Bonjour service is running
-- `bin/uxplay.exe` and GStreamer plugins are present
-- Your device and Windows machine are on the same network
-
-If you're just testing the UI flow, the development build is sufficient.
+- 📱 **Compatibilité AirPlay Complète** — Mise en miroir fluide depuis n'importe quel iPhone ou iPad (iOS 12+).
+- 🎨 **Interface Moderne & Épurée** — UI soignée sous Electron / React avec thèmes Clair, Sombre et Minuit.
+- 🎙️ **Enregistrement Vidéo & Audio Natif** — Capture directe au format MP4 (H.264 + AAC) sans perte avec mixage audio Windows Loopback (WASAPI).
+- 🔒 **Sécurisé & Personnalisable** — Protection par code PIN à 4 chiffres, choix du nom d'affichage AirPlay, résolutions et fréquence jusqu'à 60 FPS.
+- 📐 **Format Dynamique & Respect du Ratio** — Passage automatique portrait/paysage sans déformation, avec ratio verrouillé et taille minimale sécurisée.
+- ⌨️ **Ergonomie & Accessibilité** — Navigation au clavier complète (`:focus-visible`), fermeture instantanée des modales par la touche Échap, zoom accidentel neutralisé.
+- 🌍 **Multilingue** — Disponible en Français, Anglais et Allemand.
 
 ---
 
-## 🔧 How It Works
+## 📥 Téléchargement & Installation
 
-The AirPlay mirroring process involves several coordinated components:
+Téléchargez la dernière version prête à l'emploi depuis les **[Releases GitHub](https://github.com/Cori-bot/NovxMirror/releases)** :
+
+1. Téléchargez **`Novx-setup.exe`**.
+2. Lancez l'installateur (un raccourci sur le Bureau et dans le menu Démarrer sera créé).
+3. Assurez-vous que le service **Apple Bonjour** est présent (l'application détecte automatiquement son statut et propose son installation guidée si nécessaire).
+4. Connectez votre iPhone/iPad au même réseau Wi-Fi, ouvrez le *Centre de contrôle*, touchez *Recopie de l'écran* et sélectionnez votre récepteur **NOVX Mirror**.
+
+---
+
+## 🛠️ Architecture & Fonctionnement
+
+NOVX Mirror combine la puissance d'un moteur C/C++ natif et la réactivité d'Electron :
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        iPhone / iPad                        │
-│                  (wants to mirror screen)                   │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                    1. Bonjour Service Discovery
-                         │ (mDNS broadcast)
-                         ↓
-┌────────────────────────────────────────────────────────────┐
-│              NOVX Mirror (Windows Application)             │
-├────────────────────────────────────────────────────────────┤
-│                                                            │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ Electron Main Process (Node.js backend)             │   │
-│  │                                                     │   │
-│  │ • Bonjour Manager — Listens for device discovery    │   │
-│  │ • UxPlay Manager — Spawns & manages UxPlay.exe      │   │
-│  │ • IPC Bridge — Communication with React UI          │   │
-│  │ • Settings Manager — Persists config & state        │   │
-│  │ • Win32 API — Controls native video window          │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                         │                                  │
-│         ┌───────────────┼───────────────┐                  │
-│         ↓               ↓               ↓                  │
-│   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
-│   │  UxPlay.exe  │ │  GStreamer   │ │ PowerShell   │       │
-│   │              │ │  (decoding)  │ │ (video win)  │       │
-│   │ (AirPlay     │ │              │ │              │       │
-│   │  receiver)   │ │ • VP9/H.264  │ │ • WinForms   │       │
-│   │              │ │ • AAC audio  │ │ • Win32 API  │       │
-│   └──────────────┘ └──────────────┘ └──────────────┘       │
-│         │               │                  │               │
-│         └───────────────┼──────────────────┘               │
-│                         │  (decoded video + audio stream)  │
-│                         ↓                                  │
-│   ┌────────────────────────────────────────────────────┐   │
-│   │ React Renderer (UI)                                │   │
-│   │ • Home page — Live preview & stats                 │   │
-│   │ • Settings — Receiver config                       │   │
-│   │ • Logs — Filter and debug output                   │   │
-│   │ • System tray integration                          │   │
-│   └────────────────────────────────────────────────────┘   │
-│                         │                                  │
-└────────────────────────────────────────────────────────────┘
-                          │
-                          ↓
-               ┌──────────────────────┐
-               │   Display (Monitor)  │
-               │   + System Tray      │
-               └──────────────────────┘
+│                      iPhone / iPad                          │
+│                (Recopie d'écran AirPlay)                    │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                      1. Découverte Bonjour
+                               │ (mDNS / Zeroconf)
+                               ↓
+┌─────────────────────────────────────────────────────────────┐
+│              NOVX Mirror (Application Windows)              │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ Processus Principal Electron (Node.js)                │  │
+│  │ • Gestionnaire Bonjour & Vérification réseau          │  │
+│  │ • Orchestrateur UxPlay (sous-processus natif)         │  │
+│  │ • Enregistrement WASAPI Loopback + ffmpeg-static      │  │
+│  │ • Pont IPC sécurisé & persistance locale              │  │
+│  │ • Contrôle Win32 de la fenêtre vidéo HWND             │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                          │                                  │
+│          ┌───────────────┴───────────────┐                  │
+│          ↓                               ↓                  │
+│    ┌───────────┐                   ┌───────────┐            │
+│    │  UxPlay   │                   │ GStreamer │            │
+│    │ (Receiver │                   │ (D3D11 /  │            │
+│    │  AirPlay) │                   │ Décodage) │            │
+│    └─────┬─────┘                   └─────┬─────┘            │
+│          │                               │                  │
+│          └───────────────┬───────────────┘                  │
+│                          ↓                                  │
+│           Fenêtre Vidéo Direct3D11 Dédiée                   │
+│         (Suivi du ratio, plein écran, REC)                  │
+└─────────────────────────────────────────────────────────────┘
 ```
-
-### Technical Flow
-
-1. **Discovery** — Bonjour broadcasts the Windows machine as an AirPlay receiver
-2. **Connection** — iPhone detects and connects to NOVX Mirror
-3. **Streaming** — UxPlay.exe acts as the AirPlay receiver, handling the protocol
-4. **Decoding** — GStreamer decodes VP9/H.264 video and AAC audio
-5. **Rendering** — Electron/React displays the stream in a native window with controls
-6. **Recording** — Optional screenshot capture and frame rate monitoring
 
 ---
 
-## 📦 Build & Distribution
+## 💻 Développement Local
 
-### Development Commands
+### Prérequis
+- **Windows 10 ou 11 (64-bit)**
+- **Node.js 20+**
+- **pnpm 9+** (`npm install -g pnpm`)
+
+### Installation & Lancement
 
 ```bash
-pnpm dev          # Start with hot reload
-pnpm build        # Build Windows installer + portable .exe
-pnpm lint         # Run ESLint
-pnpm typecheck    # Run TypeScript type checking
-pnpm check        # Run both lint and typecheck
-pnpm format       # Format code with Prettier
+# Cloner le dépôt
+git clone https://github.com/Cori-bot/NovxMirror.git
+cd NovxMirror
+
+# Installer les dépendances
+pnpm install
+
+# Lancer en mode développement (avec rechargement à chaud Vite)
+pnpm dev
 ```
 
-### Output
+### Scripts Disponibles
 
-Running `pnpm build` generates:
-- **`dist/NOVX Mirror Setup.exe`** — Windows installer
-- **`dist/NOVX Mirror.exe`** — Portable standalone executable
-
-Both are 64-bit and include all dependencies (UxPlay, GStreamer, etc.).
+| Commande | Description |
+| :--- | :--- |
+| `pnpm dev` | Démarre l'application Electron en mode développement |
+| `pnpm check` | Exécute la validation complète du code (ESLint 9 + TypeScript `tsc -b`) |
+| `pnpm test` | Lance la suite de tests multi-résolutions Playwright |
+| `pnpm build` | Compile l'application avec `electron-vite` et génère l'exécutable NSIS dans `dist/` |
 
 ---
 
-## 🏗️ Architecture
+## 🧪 Tests Automatisés
 
-### Technology Stack
+Le projet intègre une suite de tests responsive **Playwright** (`tests/ui-responsive.spec.ts`) vérifiant l'absence de régression visuelle et le bon fonctionnement de l'UX à travers 6 résolutions d'écran :
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Backend** | Electron + Node.js | App lifecycle, IPC, file I/O, OS integration |
-| **Frontend** | React 18 + TypeScript | UI components and state management |
-| **Styling** | Tailwind CSS v3 | Responsive design and theming |
-| **State** | Zustand | Lightweight global state management |
-| **Build Tool** | electron-vite | Fast development and production builds |
-| **Quality** | ESLint, Prettier, Husky | Code consistency and pre-commit checks |
-| **Streaming** | UxPlay + GStreamer | AirPlay reception and media decoding |
-
-### Directory Structure
-
-```
-novx-mirror/
-├── src/
-│   ├── main/                    # Electron main process
-│   │   ├── index.ts             # App entry & lifecycle
-│   │   ├── windows.ts           # Electron window management
-│   │   ├── ipc.ts               # Main ↔ Renderer communication
-│   │   ├── settings.ts          # Persistent configuration
-│   │   ├── state.ts             # Runtime state
-│   │   ├── bonjour.ts           # mDNS service discovery
-│   │   ├── logger.ts            # Structured logging
-│   │   ├── uxplay-manager.ts    # UxPlay.exe control
-│   │   ├── video-window.ts      # Native video window
-│   │   └── powershell.ts        # Win32 integration
-│   │
-│   ├── renderer/                # React frontend
-│   │   ├── src/
-│   │   │   ├── pages/           # HomePage, SettingsPage
-│   │   │   ├── components/      # Reusable UI components
-│   │   │   ├── store/           # Zustand state stores
-│   │   │   ├── i18n/            # Translations (en, fr, de)
-│   │   │   ├── hooks/           # Custom React hooks
-│   │   │   ├── lib/             # Utilities
-│   │   │   └── styles/          # Global CSS + Tailwind
-│   │   └── freeze-overlay/      # Screen capture overlay
-│   │
-│   └── preload/                 # Context bridge (type-safe IPC)
-│
-├── bin/                         # Native binaries
-│   ├── uxplay.exe               # AirPlay receiver executable
-│   └── gstreamer/               # GStreamer plugins & DLLs
-│
-├── assets/                      # Images, icons, fonts
-├── installer.nsh                # NSIS installer configuration
-└── package.json
+```bash
+# Exécuter les tests Playwright
+pnpm exec playwright test
 ```
 
----
-
-## 🔐 Security & Performance Notes
-
-- **Windows-Only** — Optimized for and tested on Windows 10+
-- **Local Storage** — All settings and logs are stored locally (no cloud sync)
-- **Native Binaries** — UxPlay and GStreamer are included in `bin/` and run as native processes
-- **Firewall Rules** — Users may need to allow `uxplay.exe` through Windows Firewall
-- **PIN Protection** — Optional PIN for AirPlay connections (configured in settings)
+- **Tailles testées** : 720x560 (seuil minimal sécurisé), 960x680 (défaut), 1280x720 (HD), 1920x1080 (FHD), 2560x1440 (2K) et format vertical 1080x1920.
+- **Scénarios validés** : Absence de défilement horizontal parasite, navigation paramètres, ouverture et fermeture des modales au clavier (`Escape`).
 
 ---
 
-## 🛠️ Development Workflow
+## 📄 Licence
 
-### Pre-commit Checks
-
-Husky automatically runs before each commit:
-- **ESLint** — Fix code style issues
-- **Prettier** — Format code
-- **TypeScript** — Type checking
-
-This ensures code quality before it's committed.
-
-### Testing
-
-For real device testing:
-1. Ensure Bonjour is running: `Services → Apple Bonjour`
-2. Check that your Windows machine and iOS device are on the same network
-3. Open Control Center on iPhone/iPad → Screen Mirroring → Select "NOVX Mirror"
-
----
-
-## 📄 License & Credits
-
-**License:** MIT (see LICENSE file)
-
-**Built with:**
-- [UxPlay](https://github.com/FDH2/UxPlay) — Open-source AirPlay receiver
-- [Electron](https://www.electronjs.org/) — Cross-platform desktop framework
-- [GStreamer](https://gstreamer.freedesktop.org/) — Multimedia framework
-- [React](https://react.dev/) — UI library
-- [Tailwind CSS](https://tailwindcss.com/) — Utility-first CSS
-
----
-
-<div align="center">
-  
-  Made with ❤️ for Windows users who want AirPlay on their desktop
-  
-  [Releases](https://github.com/Cori-bot/NovxMirror/releases) • [Issues](https://github.com/Cori-bot/NovxMirror/issues) • [GitHub](https://github.com/Cori-bot/NovxMirror)
-  
-</div>
+Ce projet est sous licence **MIT**. Consultez le fichier [LICENSE](LICENSE) pour plus de détails.
