@@ -18,15 +18,13 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v5
 
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: 22
+
+      - name: 📦 Install pnpm
+        run: npm install -g pnpm@9
 
       - name: 📥 Install dependencies
         run: pnpm install
@@ -35,20 +33,22 @@ jobs:
         run: pnpm check
 
       - name: 🏗️ Build Application
-        # electron-builder avec --publish never pour générer l'installateur sans appel API direct
+        # electron-builder avec --publish never pour générer l'installateur localement sans collision d'API
         run: pnpm exec electron-vite build && pnpm exec electron-builder --win --x64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🎉 Create GitHub Release
-        # Même approche éprouvée que SwitchMaster : softprops/action-gh-release publie 1 seule release propre pour le tag
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/Novx-setup.exe
-            dist/latest.yml
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+      - name: 🎉 Create or Update GitHub Release
+        # Utilisation de la CLI officielle GitHub 'gh' : idempotent, aucune dépendance d'action Node 20, zéro warning
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ github.ref_name }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag existe déjà, mise à jour des assets avec --clobber..."
+            gh release upload "$tag" dist/Novx-setup.exe dist/latest.yml --clobber
+          else
+            echo "Création de la release $tag..."
+            gh release create "$tag" dist/Novx-setup.exe dist/latest.yml --title "$tag" --generate-notes
+          fi

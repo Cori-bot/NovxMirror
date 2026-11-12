@@ -86,5 +86,18 @@
       ".github/workflows/release.yml",
       ".agents/update.json"
     ]
+  },
+  {
+    "date": "2026-11-12T07:10:00+01:00",
+    "actions": [
+      "Correction de l'échec de publication 'Validation Failed: already_exists tag_name' et des warnings de dépréciation Node 20 dans GitHub Actions.",
+      "Remplacement de softprops/action-gh-release@v2 par la CLI officielle native GitHub 'gh release' (script Bash vérifiant si la release existe déjà avec gh release view et basculant entre 'gh release create' et 'gh release upload --clobber' de manière 100% idempotente).",
+      "Remplacement de l'action pnpm/action-setup@v4 par l'installation directe 'npm install -g pnpm@9' sous Node 22 pour éliminer l'ultime warning Node 20 sur les runners Windows Server 2025.",
+      "Recréation propre du tag v0.1.0 et push vers GitHub pour déclencher le pipeline sans aucune erreur ni warning."
+    ],
+    "changes": [
+      ".github/workflows/release.yml",
+      ".agents/update.json"
+    ]
   }
 ]
